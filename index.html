@@ -55,6 +55,10 @@
     .modal-subtitle { font-size: 11px; color: #aaa; margin-bottom: 10px; text-align: center; }
     .link-btn { background: none; border: none; color: #007AFF; font-size: 11px; text-decoration: underline; cursor: pointer; margin-top: 8px; display: block; width: 100%; text-align: center; }
   </style>
+
+  <!-- FIREBASE LIBRARIES -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -64,7 +68,7 @@
     <button class="login-btn" id="loginBtn">Editor Login</button>
   </div>
 
-  <div class="status-banner" id="statusBanner">STATUS: App Loaded. Click any tab to navigate.</div>
+  <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
 
   <!-- TAB 1: PROFILE -->
   <div id="tab-Profile" class="tab-content active">
@@ -72,7 +76,7 @@
       <div class="field-row">
         <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="memberId" class="id-input-part" placeholder="M001">
+          <input type="text" id="memberId" class="id-input-part" placeholder="M-001 or E-001">
           <button class="load-btn-part" id="btnLoadProfile">Load</button>
         </div>
       </div>
@@ -81,10 +85,10 @@
       <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
       <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
       <div class="field-row">
-        <span class="field-label">Status</span>
-        <select id="status" class="field-input">
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
+        <span class="field-label">Role Type</span>
+        <select id="roleType" class="field-input">
+          <option value="Member">Normal Member (M-)</option>
+          <option value="Editor">Editor (E-)</option>
         </select>
       </div>
 
@@ -110,7 +114,7 @@
       <div class="field-row">
         <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="weeklyMemberId" class="id-input-part" placeholder="M001">
+          <input type="text" id="weeklyMemberId" class="id-input-part" placeholder="M-001">
           <button class="load-btn-part" id="btnLoadWeekly">Load</button>
         </div>
       </div>
@@ -125,7 +129,7 @@
       <div class="field-row">
         <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="loansMemberId" class="id-input-part" placeholder="M001">
+          <input type="text" id="loansMemberId" class="id-input-part" placeholder="M-001">
           <button class="load-btn-part" id="btnLoadLoans">Load</button>
         </div>
       </div>
@@ -177,17 +181,17 @@
   <div class="modal-overlay" id="modalLogin">
     <div class="modal-box">
       <div class="modal-title">EDITOR LOGIN</div>
-      <div class="modal-subtitle">Authorized Editor IDs: M001, M002, M003</div>
+      <div class="modal-subtitle">Use your Editor ID (e.g. E-001)</div>
       <div class="field-row">
         <span class="field-label">Editor ID</span>
-        <input type="text" id="loginIdInput" class="field-input" placeholder="e.g. M001">
+        <input type="text" id="loginIdInput" class="field-input" placeholder="e.g. E-001">
       </div>
       <div class="field-row">
         <span class="field-label">Password</span>
         <input type="password" id="loginPassInput" class="field-input" placeholder="Password">
       </div>
       <button class="action-btn save-btn" id="btnSubmitLogin" style="width: 100%; margin-top: 8px;">Login</button>
-      <button class="link-btn" id="btnOpenReset">Forgot / Create Password?</button>
+      <button class="link-btn" id="btnOpenReset">Forgot / Set Password?</button>
       <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
     </div>
   </div>
@@ -195,11 +199,11 @@
   <div class="modal-overlay" id="modalReset">
     <div class="modal-box">
       <div class="modal-title">PASSWORD RECOVERY</div>
-      <div class="modal-subtitle">Type your Editor ID (M001-M003) & click Load</div>
+      <div class="modal-subtitle">Type Editor ID starting with 'E-' & click Load</div>
       <div class="field-row">
         <span class="field-label">Editor ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="resetIdInput" class="id-input-part" placeholder="M001">
+          <input type="text" id="resetIdInput" class="id-input-part" placeholder="E-001">
           <button class="load-btn-part" id="btnVerifyReset">Load</button>
         </div>
       </div>
@@ -223,13 +227,27 @@
   </div>
 
   <script>
-    const EDITOR_IDS = ["M001", "M002", "M003"];
+    // -------------------------------------------------------------
+    // REPLACE THIS BLOCK WITH YOUR FIREBASE CONFIG
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    // -------------------------------------------------------------
+
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
-    let currentWeeklyPayments = new Array(50).fill('');
 
-    // Generate 50 Weeks
+    // Build 50 Grid Cells
     const grid = document.getElementById('grid50');
     for (let i = 0; i < 50; i++) {
       grid.innerHTML += `
@@ -239,7 +257,16 @@
         </div>`;
     }
 
-    // Direct Event Listeners for Tab Navigation
+    // Sync Data with Firebase
+    db.ref('members').on('value', (snapshot) => {
+      const data = snapshot.val();
+      members = data ? Object.values(data) : [];
+      setStatus("Connected to Cloud Database.");
+      renderMembers();
+      renderSummary();
+    });
+
+    // Navigation Switches
     document.querySelectorAll('.tab-item').forEach(item => {
       item.addEventListener('click', function() {
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
@@ -247,9 +274,6 @@
         this.classList.add('active');
         const tabName = this.getAttribute('data-tab');
         document.getElementById('tab-' + tabName).classList.add('active');
-        
-        if (tabName === 'Members') renderMembers();
-        if (tabName === 'Summary') renderSummary();
       });
     });
 
@@ -259,6 +283,27 @@
     }
     document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
+    // Auto-Generate New ID (Feature #2)
+    document.getElementById('btnNewID').addEventListener('click', () => {
+      const role = document.getElementById('roleType').value;
+      const prefix = role === 'Editor' ? 'E-' : 'M-';
+      
+      const existingNumbers = members
+        .filter(m => m.id && m.id.startsWith(prefix))
+        .map(m => parseInt(m.id.split('-')[1]) || 0);
+
+      const nextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+      const formattedId = prefix + String(nextNum).padStart(3, '0');
+      
+      document.getElementById('memberId').value = formattedId;
+      document.getElementById('name').value = '';
+      document.getElementById('age').value = '';
+      document.getElementById('phone').value = '';
+      document.getElementById('familyTies').value = '';
+      setStatus(`Generated New ID: ${formattedId}`);
+    });
+
+    // Editor Login (Feature #1)
     document.getElementById('loginBtn').addEventListener('click', () => {
       if (isEditor) {
         isEditor = false;
@@ -276,15 +321,17 @@
       const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
       const pass = document.getElementById('loginPassInput').value;
 
-      if (!EDITOR_IDS.includes(id)) {
-        alert("Only M001, M002, and M003 are Editor IDs.");
+      if (!id.startsWith('E-')) {
+        alert("Editor IDs must start with 'E-' (e.g. E-001)");
         return;
       }
+
       let found = members.find(m => m.id.toUpperCase() === id);
       if (!found || !found.password) {
-        alert("No password set yet! Click 'Forgot / Create Password?' below.");
+        alert("Editor profile not configured with a password. Click 'Forgot / Set Password?' below.");
         return;
       }
+
       if (found.password === pass) {
         isEditor = true;
         activeEditorId = id;
@@ -292,7 +339,7 @@
         document.getElementById('roleBadge').style.background = "#28a745";
         document.getElementById('loginBtn').innerText = "Logout";
         closeModals();
-        setStatus(`Welcome ${id}! Editor active.`);
+        setStatus(`Logged in as Editor ${id}`);
       } else {
         alert("Incorrect Password!");
       }
@@ -305,11 +352,11 @@
 
     document.getElementById('btnVerifyReset').addEventListener('click', () => {
       const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-      if (!EDITOR_IDS.includes(id)) {
-        document.getElementById('resetStatusMsg').innerText = "Error: Must be M001, M002, or M003.";
+      if (!id.startsWith('E-')) {
+        document.getElementById('resetStatusMsg').innerText = "Error: Editor ID must start with 'E-'";
         return;
       }
-      document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} Verified. Type new password.`;
+      document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Set password below.`;
       document.getElementById('resetFields').style.display = 'block';
     });
 
@@ -318,104 +365,25 @@
       const p1 = document.getElementById('resetNewPass').value;
       const p2 = document.getElementById('resetVerPass').value;
 
-      if (!p1 || p1 !== p2) {
-        alert("Passwords do not match!");
-        return;
-      }
+      if (!p1 || p1 !== p2) return alert("Passwords do not match!");
 
       let idx = members.findIndex(m => m.id.toUpperCase() === id);
       if (idx >= 0) {
         members[idx].password = p1;
       } else {
-        members.push({ id, name: "Editor " + id, password: p1, weeklyPayments: new Array(50).fill(''), loanAmount: 0, loanPaid: 0, status: 'Active' });
+        members.push({ id, name: "Editor " + id, password: p1, isEditor: true, weeklyPayments: new Array(50).fill(''), loanAmount: 0, loanPaid: 0 });
       }
+
+      db.ref('members/' + id).set(members.find(m => m.id === id));
       closeModals();
-      setStatus(`Password created for ${id}. You can log in now!`);
+      setStatus(`Password created for ${id}. You can now log in!`);
     });
 
-    // Actions
+    // Save Member Data to Firebase
     document.getElementById('btnSaveMember').addEventListener('click', () => {
-      if (!isEditor) return alert("Only Editors can save data!");
+      if (!isEditor) return alert("Only active Editors can save modifications!");
       const id = document.getElementById('memberId').value.trim().toUpperCase();
       const name = document.getElementById('name').value.trim();
-      if (!id || !name) return alert("Please enter Member ID and Name!");
+      const roleType = document.getElementById('roleType').value;
 
-      let idx = members.findIndex(m => m.id.toUpperCase() === id);
-      let data = {
-        id, name,
-        age: document.getElementById('age').value,
-        phone: document.getElementById('phone').value,
-        familyTies: document.getElementById('familyTies').value,
-        status: document.getElementById('status').value,
-        password: idx >= 0 ? members[idx].password : '',
-        weeklyPayments: idx >= 0 ? members[idx].weeklyPayments : new Array(50).fill(''),
-        loanAmount: idx >= 0 ? members[idx].loanAmount : 0,
-        loanPaid: idx >= 0 ? members[idx].loanPaid : 0
-      };
-
-      if (idx >= 0) members[idx] = data; else members.push(data);
-      setStatus(`Saved member ${name} (${id})`);
-    });
-
-    // Load Actions
-    function loadMember(id) {
-      if (!id) return;
-      let m = members.find(x => x.id.toUpperCase() === id.toUpperCase());
-      if (m) {
-        document.getElementById('memberId').value = m.id;
-        document.getElementById('weeklyMemberId').value = m.id;
-        document.getElementById('loansMemberId').value = m.id;
-        document.getElementById('name').value = m.name;
-        document.getElementById('age').value = m.age || '';
-        document.getElementById('phone').value = m.phone || '';
-        document.getElementById('familyTies').value = m.familyTies || '';
-        document.getElementById('status').value = m.status || 'Active';
-
-        for (let i = 0; i < 50; i++) {
-          document.getElementById(`wk_${i}`).value = m.weeklyPayments[i] || '';
-        }
-        setStatus(`Loaded record for ${m.name}`);
-      } else {
-        setStatus(`No profile found for ID ${id}`);
-      }
-    }
-
-    document.getElementById('btnLoadProfile').addEventListener('click', () => loadMember(document.getElementById('memberId').value));
-    document.getElementById('btnLoadWeekly').addEventListener('click', () => loadMember(document.getElementById('weeklyMemberId').value));
-    document.getElementById('btnLoadLoans').addEventListener('click', () => loadMember(document.getElementById('loansMemberId').value));
-
-    function setStatus(msg) {
-      document.getElementById('statusBanner').innerText = "STATUS: " + msg;
-    }
-
-    function renderMembers() {
-      let box = document.getElementById('membersListContainer');
-      if (members.length === 0) {
-        box.innerHTML = `<div style="text-align:center; padding: 20px; font-size:12px; color:#888;">No members recorded yet.</div>`;
-        return;
-      }
-      box.innerHTML = members.map(m => `
-        <div style="background:#000018; border:1px solid #222255; padding:8px; border-radius:4px; margin-bottom:6px;">
-          <b style="color:#ffd700;">${m.id} - ${m.name}</b> (${m.status})
-        </div>
-      `).join('');
-    }
-
-    function renderSummary() {
-      let saved = 0, loans = 0, repaid = 0;
-      members.forEach(m => {
-        saved += (m.weeklyPayments || []).reduce((a, b) => a + (parseFloat(b) || 0), 0);
-        loans += m.loanAmount || 0;
-        repaid += m.loanPaid || 0;
-      });
-      document.getElementById('sumTotalSaved').innerText = "₦" + saved.toLocaleString();
-      document.getElementById('sumTotalLoans').innerText = "₦" + loans.toLocaleString();
-      document.getElementById('sumTotalRepaid').innerText = "₦" + repaid.toLocaleString();
-      document.getElementById('sumTotalLoanBal').innerText = "₦" + (loans - repaid).toLocaleString();
-      document.getElementById('sumGrandNet').innerText = "₦" + (saved - (loans - repaid)).toLocaleString();
-      document.getElementById('sumTotalMembers').innerText = members.length;
-    }
-  </script>
-</body>
-</html>
-
+      if (!id || !name) return alert("Member ID and Name are 
