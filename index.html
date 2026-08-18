@@ -54,6 +54,10 @@
     .modal-title { font-size: 13px; font-weight: bold; color: #ffd700; margin-bottom: 12px; text-align: center; }
     .modal-subtitle { font-size: 11px; color: #aaa; margin-bottom: 10px; text-align: center; }
     .link-btn { background: none; border: none; color: #007AFF; font-size: 11px; text-decoration: underline; cursor: pointer; margin-top: 8px; display: block; width: 100%; text-align: center; }
+    
+    /* MEMBER ITEM STYLES */
+    .member-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 11px; }
+    .member-header { display: flex; justify-content: space-between; font-weight: bold; color: #ffd700; margin-bottom: 4px; }
   </style>
 
   <!-- FIREBASE LIBRARIES -->
@@ -227,24 +231,27 @@
   </div>
 
   <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
-  authDomain: "maqali-app-83b95.firebaseapp.com",
-  databaseURL: "https://maqali-app-83b95-default-rtdb.firebaseio.com",
-  projectId: "maqali-app-83b95",
-  storageBucket: "maqali-app-83b95.firebasestorage.app",
-  messagingSenderId: "458036803827",
-  appId: "1:458036803827:web:a7d2f61d1256fdfca21f86",
-  measurementId: "G-RE6DXYQ0RL"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
+      authDomain: "maqali-app-83b95.firebaseapp.com",
+      databaseURL: "https://maqali-app-83b95-default-rtdb.firebaseio.com",
+      projectId: "maqali-app-83b95",
+      storageBucket: "maqali-app-83b95.firebasestorage.app",
+      messagingSenderId: "458036803827",
+      appId: "1:458036803827:web:a7d2f61d1256fdfca21f86",
+      measurementId: "G-RE6DXYQ0RL"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    // -------------------------------------------------------------
 
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
+
+    function setStatus(msg) {
+      document.getElementById('statusBanner').innerText = "STATUS: " + msg;
+    }
 
     // Build 50 Grid Cells
     const grid = document.getElementById('grid50');
@@ -282,7 +289,7 @@ const firebaseConfig = {
     }
     document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
-    // Auto-Generate New ID (Feature #2)
+    // Auto-Generate New ID
     document.getElementById('btnNewID').addEventListener('click', () => {
       const role = document.getElementById('roleType').value;
       const prefix = role === 'Editor' ? 'E-' : 'M-';
@@ -302,7 +309,7 @@ const firebaseConfig = {
       setStatus(`Generated New ID: ${formattedId}`);
     });
 
-    // Editor Login (Feature #1)
+    // Editor Login
     document.getElementById('loginBtn').addEventListener('click', () => {
       if (isEditor) {
         isEditor = false;
@@ -325,7 +332,7 @@ const firebaseConfig = {
         return;
       }
 
-      let found = members.find(m => m.id.toUpperCase() === id);
+      let found = members.find(m => m.id && m.id.toUpperCase() === id);
       if (!found || !found.password) {
         alert("Editor profile not configured with a password. Click 'Forgot / Set Password?' below.");
         return;
@@ -366,7 +373,7 @@ const firebaseConfig = {
 
       if (!p1 || p1 !== p2) return alert("Passwords do not match!");
 
-      let idx = members.findIndex(m => m.id.toUpperCase() === id);
+      let idx = members.findIndex(m => m.id && m.id.toUpperCase() === id);
       if (idx >= 0) {
         members[idx].password = p1;
       } else {
@@ -381,8 +388,4 @@ const firebaseConfig = {
     // Save Member Data to Firebase
     document.getElementById('btnSaveMember').addEventListener('click', () => {
       if (!isEditor) return alert("Only active Editors can save modifications!");
-      const id = document.getElementById('memberId').value.trim().toUpperCase();
-      const name = document.getElementById('name').value.trim();
-      const roleType = document.getElementById('roleType').value;
-
-      if (!id || !name) return alert("Member ID and Name are 
+      const i
