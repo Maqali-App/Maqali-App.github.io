@@ -263,13 +263,22 @@
         </div>`;
     }
 
-    // Sync Data with Firebase
+    // Monitor Firebase Connection State
+    db.ref('.info/connected').on('value', (snap) => {
+      if (snap.val() === false) {
+        setStatus("Connecting / Disconnected from Cloud Server...");
+      }
+    });
+
+    // Sync Data with Firebase (With Explicit Error Handling)
     db.ref('members').on('value', (snapshot) => {
       const data = snapshot.val();
       members = data ? Object.values(data) : [];
       setStatus("Connected to Cloud Database.");
       renderMembers();
       renderSummary();
+    }, (error) => {
+      setStatus("Database Error: " + error.message);
     });
 
     // Navigation Switches
@@ -380,12 +389,206 @@
         members.push({ id, name: "Editor " + id, password: p1, isEditor: true, weeklyPayments: new Array(50).fill(''), loanAmount: 0, loanPaid: 0 });
       }
 
-      db.ref('members/' + id).set(members.find(m => m.id === id));
-      closeModals();
-      setStatus(`Password created for ${id}. You can now log in!`);
+      db.ref('members/' + id).set(members.find(m => m.id === id), (err) => {
+        if (err) alert("Save failed: " + err.message);
+        else {
+          closeModals();
+          setStatus(`Password created for ${id}. You can now log in!`);
+        }
+      });
     });
 
     // Save Member Data to Firebase
     document.getElementById('btnSaveMember').addEventListener('click', () => {
       if (!isEditor) return alert("Only active Editors can save modifications!");
-      const i
+      const id = document.getElementById('memberId').value.trim().toUpperCase();
+      const name = document.getElementById('name').value.trim();
+      const age = document.getElementById('age').value;
+      const phone = document.getElementById('phone').value;
+      const familyTies = document.getElementById('familyTies').value;
+      const roleType = document.getElementById('roleType').value;
+
+      if (!id || !name) return alert("Member ID and Name are required!");
+
+      let existing = members.find(m => m.id === id) || {};
+      const updatedMember = {
+        id,
+        name,
+        age,
+        phone,
+        familyTies,
+        roleType,
+        password: existing.password || "",
+        weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
+        loanAmount: existing.loanAmount || 0,
+        loanPaid: existing.loanPaid || 0
+      };
+
+      db.ref('members/' + id).set(updatedMember, (err) => {
+        if (err) setStatus("Save Error: " + err.message);
+        else setStatus(`Member ${id} saved successfully!`);
+      });
+    });
+
+    // Load Profile
+    document.getElementById('btnLoadProfile').addEventListener('click', () => {
+      const id = document.getElementById('memberId').value.trim().toUpperCase();
+      const m = members.find(mem => mem.id === id);
+      if (!m) return alert("Member not found!");
+
+      document.getElementById('name').value = m.name || '';
+      document.getElementById('age').value = m.age || '';
+      document.getElementById('phone').value = m.phone || '';
+      document.getElementById('familyTies').value = m.familyTies || '';
+      document.getElementById('roleType').value = m.roleType || 'Member';
+
+      const payments = m.weeklyPayments || [];
+      const weeksPaid = payments.filter(p => p !== '' && p !== null && Number(p) > 0).length;
+      const amountSaved = payments.reduce((sum, p) => sum + (Number(p) || 0), 0);
+      const loanAmount = Number(m.loanAmount) || 0;
+      const loanPaid = Number(m.loanPaid) || 0;
+      const loanBal = loanAmount - loanPaid;
+      const netBal = amountSaved - loanBal;
+
+      document.getElementById('profWeeksPaid').innerText = weeksPaid;
+      document.getElementById('profAmountSaved').innerText = '₦' + amountSaved.toLocaleString();
+      document.getElementById('profLoanAmount').innerText = '₦' + loanAmount.toLocaleString();
+      document.getElementById('profLoanPaid').innerText = '₦' + loanPaid.toLocaleString();
+      document.getElementById('profLoanBalance').innerText = '₦' + loanBal.toLocaleString();
+      document.getElementById('profNetBalance').innerText = '₦' + netBal.toLocaleString();
+      setStatus(`Loaded Profile: ${id}`);
+    });
+
+    // Load & Save Weekly Payments
+    document.getElementById('btnLoadWeekly').addEventListener('click', () => {
+      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+      const m = members.find(mem => mem.id === id);
+      if (!m) return alert("Member not found!");
+
+      const payments = m.weeklyPayments || [];
+      for (let i = 0; i < 50; i++) {
+        document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
+      }
+      setStatus(`Loaded weekly payments for ${id}`);
+    });
+
+    document.getElementById('btnSavePayments').addEventListener('click', () => {
+      if (!isEditor) return alert("Only active Editors can save modifications!");
+      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+      if (!id) return alert("Please enter a Member ID!");
+
+      let payments = [];
+      for (let i = 0; i < 50; i++) {
+        payments.push(document.getElementById(`wk_${i}`).value);
+      }
+
+      db.ref(`members/${id}/weeklyPayments`).set(payments, (err) => {
+        if (err) setStatus("Save Error: " + err.message);
+        else setStatus(`Payments updated for ${id}`);
+      });
+    });
+
+    // Loans Management
+    document.getElementById('btnLoadLoans').addEventListener('click', () => {
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const m = members.find(mem => mem.id === id);
+      if (!m) return alert("Member not found!");
+
+      const loanTotal = Number(m.loanAmount) || 0;
+      const loanPaid = Number(m.loanPaid) || 0;
+      const bal = loanTotal - loanPaid;
+
+      document.getElementById('loanTotalVal').innerText = '₦' + loanTotal.toLocaleString();
+      document.getElementById('loanPaidVal').innerText = '₦' + loanPaid.toLocaleString();
+      document.getElementById('loanBalVal').innerText = '₦' + bal.toLocaleString();
+      setStatus(`Loaded loan data for ${id}`);
+    });
+
+    document.getElementById('btnAddLoan').addEventListener('click', () => {
+      if (!isEditor) return alert("Only active Editors can add loans!");
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const amt = Number(document.getElementById('newLoanInput').value);
+      if (!id || !amt) return alert("Enter valid Member ID and Loan Amount!");
+
+      const m = members.find(mem => mem.id === id);
+      if (!m) return alert("Member not found!");
+
+      const newTotal = (Number(m.loanAmount) || 0) + amt;
+      db.ref(`members/${id}/loanAmount`).set(newTotal, (err) => {
+        if (err) setStatus("Loan Error: " + err.message);
+        else {
+          document.getElementById('newLoanInput').value = '';
+          setStatus(`Added ₦${amt} loan to ${id}`);
+        }
+      });
+    });
+
+    document.getElementById('btnPayLoan').addEventListener('click', () => {
+      if (!isEditor) return alert("Only active Editors can record repayments!");
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const amt = Number(document.getElementById('payLoanInput').value);
+      if (!id || !amt) return alert("Enter valid Member ID and Repayment Amount!");
+
+      const m = members.find(mem => mem.id === id);
+      if (!m) return alert("Member not found!");
+
+      const newPaid = (Number(m.loanPaid) || 0) + amt;
+      db.ref(`members/${id}/loanPaid`).set(newPaid, (err) => {
+        if (err) setStatus("Payment Error: " + err.message);
+        else {
+          document.getElementById('payLoanInput').value = '';
+          setStatus(`Recorded ₦${amt} repayment for ${id}`);
+        }
+      });
+    });
+
+    // Render Members List
+    function renderMembers() {
+      const container = document.getElementById('membersListContainer');
+      container.innerHTML = '';
+      if (members.length === 0) {
+        container.innerHTML = '<div style="text-align:center; font-size:11px; color:#aaa;">No members found.</div>';
+        return;
+      }
+      members.forEach(m => {
+        const payments = m.weeklyPayments || [];
+        const saved = payments.reduce((s, p) => s + (Number(p) || 0), 0);
+        const loanBal = (Number(m.loanAmount) || 0) - (Number(m.loanPaid) || 0);
+
+        container.innerHTML += `
+          <div class="member-card">
+            <div class="member-header">
+              <span>${m.name || 'Unnamed'} (${m.id})</span>
+              <span>${m.roleType || 'Member'}</span>
+            </div>
+            <div>Saved: ₦${saved.toLocaleString()} | Loan Bal: ₦${loanBal.toLocaleString()}</div>
+          </div>`;
+      });
+    }
+
+    // Render Summary
+    function renderSummary() {
+      let totalSaved = 0;
+      let totalLoans = 0;
+      let totalRepaid = 0;
+
+      members.forEach(m => {
+        const payments = m.weeklyPayments || [];
+        totalSaved += payments.reduce((s, p) => s + (Number(p) || 0), 0);
+        totalLoans += Number(m.loanAmount) || 0;
+        totalRepaid += Number(m.loanPaid) || 0;
+      });
+
+      const totalLoanBal = totalLoans - totalRepaid;
+      const grandNet = totalSaved - totalLoanBal;
+
+      document.getElementById('sumTotalSaved').innerText = '₦' + totalSaved.toLocaleString();
+      document.getElementById('sumTotalLoans').innerText = '₦' + totalLoans.toLocaleString();
+      document.getElementById('sumTotalRepaid').innerText = '₦' + totalRepaid.toLocaleString();
+      document.getElementById('sumTotalLoanBal').innerText = '₦' + totalLoanBal.toLocaleString();
+      document.getElementById('sumGrandNet').innerText = '₦' + grandNet.toLocaleString();
+      document.getElementById('sumTotalMembers').innerText = members.length;
+    }
+  </script>
+</body>
+</html>
