@@ -5,34 +5,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Maqali Family Contribution</title>
   
+  <!-- Font Awesome CDN for SVG/Class-based Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <!-- SECTION: CSS Styles -->
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #0d1117; color: #c9d1d9; padding: 12px; }
+    
+    /* Background restored to previous dark gradient styling with radial highlights */
+    body { 
+      background: radial-gradient(circle at top, #1a1f29 0%, #0d1117 100%); 
+      background-attachment: fixed;
+      color: #c9d1d9; 
+      padding: 12px; 
+    }
     
     /* Status & Header Styling */
-    .status-banner { background: #161b22; border: 1px solid #30363d; color: #ffd700; text-align: center; padding: 8px; font-weight: bold; border-radius: 6px; margin-bottom: 12px; font-size: 13px; }
+    .status-banner { 
+      background: rgba(22, 27, 34, 0.8); 
+      backdrop-filter: blur(8px);
+      border: 1px solid #30363d; 
+      color: #ffd700; 
+      text-align: center; 
+      padding: 8px; 
+      font-weight: bold; 
+      border-radius: 6px; 
+      margin-bottom: 12px; 
+      font-size: 13px; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .role-badge { background: #21262d; border: 1px solid #30363d; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #8b949e; }
-    .btn-login { background: #238636; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; }
+    .role-badge { background: #21262d; border: 1px solid #30363d; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #8b949e; display: flex; align-items: center; gap: 6px; }
+    .btn-login { background: #238636; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     
     /* Layout Containers & Form Inputs */
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+    .card { 
+      background: #161b22; 
+      border: 1px solid #30363d; 
+      border-radius: 8px; 
+      padding: 14px; 
+      margin-bottom: 14px; 
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
     .form-group { margin-bottom: 10px; }
     .form-group label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px; font-weight: 600; }
     .form-control { width: 100%; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
     .input-group { display: flex; gap: 6px; }
-    .btn { width: 100%; background: #21262d; border: 1px solid #30363d; color: white; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+    .btn { width: 100%; background: #21262d; border: 1px solid #30363d; color: white; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .btn-primary { background: #1f6beb; border-color: #1f6beb; }
     .btn-success { background: #238636; border-color: #238636; }
     
     /* Stats & Summary Display Styling */
     .stats-list { margin-top: 10px; border-top: 1px dashed #30363d; padding-top: 8px; }
-    .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; align-items: center; }
+    .stat-label { display: flex; align-items: center; gap: 6px; color: #8b949e; }
     
-    /* Bottom Navigation Bar */
+    /* Bottom Navigation Bar with Icons */
     .tab-bar { display: flex; background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; margin-top: 10px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; }
-    .tab-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #8b949e; cursor: pointer; border-right: 1px solid #30363d; }
+    .tab-item { flex: 1; text-align: center; padding: 10px 0; font-size: 11px; color: #8b949e; cursor: pointer; border-right: 1px solid #30363d; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .tab-item i { font-size: 14px; }
     .tab-item:last-child { border-right: none; }
     .tab-item.active { background: #1f6beb; color: white; font-weight: bold; }
     .tab-content { display: none; padding-bottom: 60px; }
@@ -60,12 +96,14 @@
 
   <!-- SECTION: Header & Role Status Bar -->
   <div class="header-bar">
-    <div id="roleBadge" class="role-badge">Role: Viewer (Read-Only)</div>
-    <button id="loginBtn" class="btn-login">Editor Login</button>
+    <div id="roleBadge" class="role-badge"><i class="fa-solid fa-user-shield"></i> Role: Viewer (Read-Only)</div>
+    <button id="loginBtn" class="btn-login"><i class="fa-solid fa-right-to-bracket"></i> Editor Login</button>
   </div>
 
   <!-- SECTION: Database Connection Banner -->
-  <div id="statusBanner" class="status-banner">STATUS: Connecting to Database...</div>
+  <div id="statusBanner" class="status-banner">
+    <i class="fa-solid fa-signal"></i> <span>STATUS: Connecting to Database...</span>
+  </div>
 
   <!-- ========================================== -->
   <!-- TAB SECTION 1: MEMBER PROFILE MANAGEMENT   -->
@@ -73,35 +111,35 @@
   <div id="tab-profile" class="tab-content active">
     <div class="card">
       <div class="form-group">
-        <label>Member ID</label>
+        <label><i class="fa-solid fa-id-card"></i> Member ID</label>
         <div class="input-group">
           <input type="text" id="memberId" class="form-control" placeholder="M-001 or E-001">
-          <button id="btnLoadProfile" class="btn btn-primary" style="width: auto; margin-top: 0;">Load</button>
+          <button id="btnLoadProfile" class="btn btn-primary" style="width: auto; margin-top: 0;"><i class="fa-solid fa-download"></i> Load</button>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Name</label>
+        <label><i class="fa-solid fa-user"></i> Name</label>
         <input type="text" id="name" class="form-control" placeholder="Full Name">
       </div>
 
       <div class="form-group">
-        <label>Age</label>
+        <label><i class="fa-solid fa-cake-candles"></i> Age</label>
         <input type="number" id="age" class="form-control" placeholder="Age">
       </div>
 
       <div class="form-group">
-        <label>Phone</label>
+        <label><i class="fa-solid fa-phone"></i> Phone</label>
         <input type="text" id="phone" class="form-control" placeholder="Phone">
       </div>
 
       <div class="form-group">
-        <label>Family Ties</label>
+        <label><i class="fa-solid fa-people-roof"></i> Family Ties</label>
         <input type="text" id="familyTies" class="form-control" placeholder="Ties">
       </div>
 
       <div class="form-group">
-        <label>Role Type</label>
+        <label><i class="fa-solid fa-user-tag"></i> Role Type</label>
         <select id="roleType" class="form-control">
           <option value="Member">Normal Member (M-)</option>
           <option value="Editor">Editor (E-)</option>
@@ -109,18 +147,18 @@
       </div>
 
       <div style="display: flex; gap: 8px;">
-        <button id="btnNewID" class="btn btn-primary">New ID</button>
-        <button id="btnSaveMember" class="btn btn-success">Save Member</button>
+        <button id="btnNewID" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New ID</button>
+        <button id="btnSaveMember" class="btn btn-success"><i class="fa-solid fa-floppy-disk"></i> Save Member</button>
       </div>
 
-      <!-- Individual Financial Stats Breakdown -->
+      <!-- Individual Financial Stats Breakdown with Icons -->
       <div class="stats-list">
-        <div class="stat-row"><span>Weeks Paid:</span><b id="profWeeksPaid">0</b></div>
-        <div class="stat-row"><span>Amount Saved:</span><b id="profAmountSaved">₦0</b></div>
-        <div class="stat-row"><span>Loan Amount:</span><b id="profLoanAmount">₦0</b></div>
-        <div class="stat-row"><span>Loan Paid:</span><b id="profLoanPaid">₦0</b></div>
-        <div class="stat-row"><span>Loan Balance:</span><b id="profLoanBalance" style="color: #ff6b6b;">₦0</b></div>
-        <div class="stat-row"><span>Net Balance:</span><b id="profNetBalance" style="color: #51cf66;">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-calendar-check"></i> Weeks Paid:</span><b id="profWeeksPaid">0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-piggy-bank"></i> Amount Saved:</span><b id="profAmountSaved">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-hand-holding-dollar"></i> Loan Amount:</span><b id="profLoanAmount">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-receipt"></i> Loan Paid:</span><b id="profLoanPaid">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-scale-unbalanced"></i> Loan Balance:</span><b id="profLoanBalance" style="color: #ff6b6b;">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-wallet"></i> Net Balance:</span><b id="profNetBalance" style="color: #51cf66;">₦0</b></div>
       </div>
     </div>
   </div>
@@ -131,15 +169,15 @@
   <div id="tab-weekly" class="tab-content">
     <div class="card">
       <div class="form-group">
-        <label>Member ID</label>
+        <label><i class="fa-solid fa-id-card"></i> Member ID</label>
         <div class="input-group">
           <input type="text" id="weeklyMemberId" class="form-control" placeholder="e.g. M-001">
-          <button id="btnLoadWeekly" class="btn btn-primary" style="width: auto; margin-top: 0;">Load</button>
+          <button id="btnLoadWeekly" class="btn btn-primary" style="width: auto; margin-top: 0;"><i class="fa-solid fa-download"></i> Load</button>
         </div>
       </div>
       <!-- Dynamically Generated 50-Week Grid -->
       <div id="grid50" class="grid-container"></div>
-      <button id="btnSavePayments" class="btn btn-success" style="margin-top: 10px;">Save Payments</button>
+      <button id="btnSavePayments" class="btn btn-success" style="margin-top: 10px;"><i class="fa-solid fa-floppy-disk"></i> Save Payments</button>
     </div>
   </div>
 
@@ -149,26 +187,26 @@
   <div id="tab-loans" class="tab-content">
     <div class="card">
       <div class="form-group">
-        <label>Member ID</label>
+        <label><i class="fa-solid fa-id-card"></i> Member ID</label>
         <div class="input-group">
           <input type="text" id="loansMemberId" class="form-control" placeholder="e.g. M-001">
-          <button id="btnLoadLoans" class="btn btn-primary" style="width: auto; margin-top: 0;">Load</button>
+          <button id="btnLoadLoans" class="btn btn-primary" style="width: auto; margin-top: 0;"><i class="fa-solid fa-download"></i> Load</button>
         </div>
       </div>
       <div class="stats-list" style="border: none; padding-top: 0;">
-        <div class="stat-row"><span>Total Loaned:</span><b id="loanTotalVal">₦0</b></div>
-        <div class="stat-row"><span>Total Repaid:</span><b id="loanPaidVal">₦0</b></div>
-        <div class="stat-row"><span>Outstanding Balance:</span><b id="loanBalVal" style="color:#ff6b6b;">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-file-invoice-dollar"></i> Total Loaned:</span><b id="loanTotalVal">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-circle-check"></i> Total Repaid:</span><b id="loanPaidVal">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-triangle-exclamation"></i> Outstanding Balance:</span><b id="loanBalVal" style="color:#ff6b6b;">₦0</b></div>
       </div>
       <div class="form-group" style="margin-top: 10px;">
-        <label>Issue New Loan (₦)</label>
+        <label><i class="fa-solid fa-money-bill-transfer"></i> Issue New Loan (₦)</label>
         <input type="number" id="newLoanInput" class="form-control" placeholder="Amount">
-        <button id="btnAddLoan" class="btn btn-primary">Issue Loan</button>
+        <button id="btnAddLoan" class="btn btn-primary"><i class="fa-solid fa-hand-holding-dollar"></i> Issue Loan</button>
       </div>
       <div class="form-group" style="margin-top: 10px;">
-        <label>Record Repayment (₦)</label>
+        <label><i class="fa-solid fa-money-bill-wave"></i> Record Repayment (₦)</label>
         <input type="number" id="payLoanInput" class="form-control" placeholder="Amount">
-        <button id="btnPayLoan" class="btn btn-success">Record Repayment</button>
+        <button id="btnPayLoan" class="btn btn-success"><i class="fa-solid fa-circle-dollar-to-slot"></i> Record Repayment</button>
       </div>
     </div>
   </div>
@@ -185,73 +223,89 @@
   <!-- ========================================== -->
   <div id="tab-summary" class="tab-content">
     <div class="card">
-      <h3 style="font-size: 14px; margin-bottom: 10px; color: white;">Group Financial Summary</h3>
+      <h3 style="font-size: 14px; margin-bottom: 10px; color: white; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-chart-pie"></i> Group Financial Summary
+      </h3>
       <div class="stats-list" style="border: none; padding-top: 0;">
-        <div class="stat-row"><span>Total Members:</span><b id="sumTotalMembers">0</b></div>
-        <div class="stat-row"><span>Total Savings Pool:</span><b id="sumTotalSaved" style="color: #51cf66;">₦0</b></div>
-        <div class="stat-row"><span>Total Loans Issued:</span><b id="sumTotalLoans">₦0</b></div>
-        <div class="stat-row"><span>Total Loans Repaid:</span><b id="sumTotalRepaid">₦0</b></div>
-        <div class="stat-row"><span>Active Outstanding Loans:</span><b id="sumTotalLoanBal" style="color: #ff6b6b;">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-users"></i> Total Members:</span><b id="sumTotalMembers">0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-vault"></i> Total Savings Pool:</span><b id="sumTotalSaved" style="color: #51cf66;">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-building-columns"></i> Total Loans Issued:</span><b id="sumTotalLoans">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-arrow-rotate-left"></i> Total Loans Repaid:</span><b id="sumTotalRepaid">₦0</b></div>
+        <div class="stat-row"><span class="stat-label"><i class="fa-solid fa-clock-rotate-left"></i> Active Outstanding Loans:</span><b id="sumTotalLoanBal" style="color: #ff6b6b;">₦0</b></div>
         <div class="stat-row" style="font-size: 14px; margin-top: 6px; border-top: 1px solid #30363d; padding-top: 6px;">
-          <span>Net Cash Asset:</span><b id="sumGrandNet" style="color: #51cf66;">₦0</b>
+          <span class="stat-label" style="color: white;"><i class="fa-solid fa-coins"></i> Net Cash Asset:</span><b id="sumGrandNet" style="color: #51cf66;">₦0</b>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SECTION: Bottom Navigation Bar -->
+  <!-- SECTION: Bottom Navigation Bar with Icons -->
   <div class="tab-bar">
-    <div class="tab-item active" data-tab="profile">Profile</div>
-    <div class="tab-item" data-tab="weekly">Weekly</div>
-    <div class="tab-item" data-tab="loans">Loans</div>
-    <div class="tab-item" data-tab="members">Members</div>
-    <div class="tab-item" data-tab="summary">Summary</div>
+    <div class="tab-item active" data-tab="profile">
+      <i class="fa-solid fa-user-gear"></i> Profile
+    </div>
+    <div class="tab-item" data-tab="weekly">
+      <i class="fa-solid fa-calendar-days"></i> Weekly
+    </div>
+    <div class="tab-item" data-tab="loans">
+      <i class="fa-solid fa-hand-holding-dollar"></i> Loans
+    </div>
+    <div class="tab-item" data-tab="members">
+      <i class="fa-solid fa-address-book"></i> Members
+    </div>
+    <div class="tab-item" data-tab="summary">
+      <i class="fa-solid fa-chart-line"></i> Summary
+    </div>
   </div>
 
   <!-- SECTION: Modal - Editor Login Popup -->
   <div id="modalLogin" class="modal-overlay">
     <div class="modal-box">
-      <h3 style="font-size: 14px; color: white; margin-bottom: 10px;">Editor Login</h3>
+      <h3 style="font-size: 14px; color: white; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-lock"></i> Editor Login
+      </h3>
       <div class="form-group">
-        <label>Editor ID (E-001 or E-002)</label>
+        <label><i class="fa-solid fa-user-check"></i> Editor ID (E-001 or E-002)</label>
         <input type="text" id="loginIdInput" class="form-control" placeholder="E-001">
       </div>
       <div class="form-group">
-        <label>Password</label>
+        <label><i class="fa-solid fa-key"></i> Password</label>
         <input type="password" id="loginPassInput" class="form-control" placeholder="Password">
       </div>
-      <button id="btnSubmitLogin" class="btn btn-success">Login</button>
-      <button id="btnOpenReset" class="btn" style="background: transparent; border: none; color: #8b949e; font-size: 11px;">Forgot Password?</button>
-      <button class="btn btn-close-modal" style="background: #21262d;">Cancel</button>
+      <button id="btnSubmitLogin" class="btn btn-success"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+      <button id="btnOpenReset" class="btn" style="background: transparent; border: none; color: #8b949e; font-size: 11px;"><i class="fa-solid fa-question-circle"></i> Forgot Password?</button>
+      <button class="btn btn-close-modal" style="background: #21262d;"><i class="fa-solid fa-xmark"></i> Cancel</button>
     </div>
   </div>
 
   <!-- SECTION: Modal - Reset Password Popup -->
   <div id="modalReset" class="modal-overlay">
     <div class="modal-box">
-      <h3 style="font-size: 14px; color: white; margin-bottom: 10px;">Reset Password</h3>
+      <h3 style="font-size: 14px; color: white; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-shield-halved"></i> Reset Password
+      </h3>
       <div class="form-group">
-        <label>Editor ID</label>
+        <label><i class="fa-solid fa-user-shield"></i> Editor ID</label>
         <input type="text" id="resetIdInput" class="form-control" placeholder="E-001">
-        <button id="btnVerifyReset" class="btn btn-primary">Verify ID</button>
+        <button id="btnVerifyReset" class="btn btn-primary"><i class="fa-solid fa-check"></i> Verify ID</button>
       </div>
       <div id="resetStatusMsg" style="font-size: 11px; color: #ffd700; margin-bottom: 6px;"></div>
       <div id="resetFields" style="display: none;">
         <div class="form-group">
-          <label>Admin Master PIN</label>
+          <label><i class="fa-solid fa-lock-open"></i> Admin Master PIN</label>
           <input type="password" id="resetMasterPin" class="form-control" placeholder="Master PIN">
         </div>
         <div class="form-group">
-          <label>New Password</label>
+          <label><i class="fa-solid fa-key"></i> New Password</label>
           <input type="password" id="resetNewPass" class="form-control">
         </div>
         <div class="form-group">
-          <label>Verify Password</label>
+          <label><i class="fa-solid fa-check-double"></i> Verify Password</label>
           <input type="password" id="resetVerPass" class="form-control">
         </div>
-        <button id="btnSubmitReset" class="btn btn-success">Update Password</button>
+        <button id="btnSubmitReset" class="btn btn-success"><i class="fa-solid fa-rotate-right"></i> Update Password</button>
       </div>
-      <button class="btn btn-close-modal" style="background: #21262d;">Cancel</button>
+      <button class="btn btn-close-modal" style="background: #21262d;"><i class="fa-solid fa-xmark"></i> Cancel</button>
     </div>
   </div>
 
@@ -264,7 +318,7 @@
       const banner = document.getElementById('statusBanner');
       if (banner) {
         banner.style.color = '#ff6b6b';
-        banner.innerText = "JS Error (Line " + lineNo + "): " + msg;
+        banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span>JS Error (Line ${lineNo}): ${msg}</span>`;
       }
       return false;
     };
@@ -294,16 +348,16 @@
       const banner = document.getElementById('statusBanner');
       if (banner) {
         banner.style.color = color;
-        banner.innerText = "STATUS: " + msg;
+        banner.innerHTML = `<i class="fa-solid fa-signal"></i> <span>STATUS: ${msg}</span>`;
       }
     }
 
     function applyEditorUI(editorId) {
       isEditor = true;
       activeEditorId = editorId;
-      document.getElementById('roleBadge').innerText = `Role: Editor (${editorId})`;
+      document.getElementById('roleBadge').innerHTML = `<i class="fa-solid fa-user-check"></i> Role: Editor (${editorId})`;
       document.getElementById('roleBadge').style.background = "#28a745";
-      document.getElementById('loginBtn').innerText = "Logout";
+      document.getElementById('loginBtn').innerHTML = `<i class="fa-solid fa-right-from-bracket"></i> Logout`;
     }
 
     function restoreSession() {
@@ -431,4 +485,287 @@
 
       document.getElementById('name').value = m.name || '';
       document.getElementById('age').value = m.age || '';
-      document.getElementById('phone').value = m.pho
+      document.getElementById('phone').value = m.phone || '';
+      document.getElementById('familyTies').value = m.familyTies || '';
+      document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
+
+      const payments = getPaymentsArray(m.weeklyPayments);
+      const wPaid = payments.filter(val => val !== "" && val !== null && !isNaN(val)).length;
+      const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+      const lAmt = parseFloat(m.loanAmount) || 0;
+      const lPaid = parseFloat(m.loanPaid) || 0;
+      const lBal = Math.max(0, lAmt - lPaid);
+      const netBal = amountSaved - lBal;
+
+      document.getElementById('profWeeksPaid').innerText = wPaid;
+      document.getElementById('profAmountSaved').innerText = `₦${amountSaved.toLocaleString()}`;
+      document.getElementById('profLoanAmount').innerText = `₦${lAmt.toLocaleString()}`;
+      document.getElementById('profLoanPaid').innerText = `₦${lPaid.toLocaleString()}`;
+      document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
+      document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
+    });
+
+    // Save Member Profile
+    document.getElementById('btnSaveMember').addEventListener('click', () => {
+      if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
+
+      const id = document.getElementById('memberId').value.trim().toUpperCase();
+      const name = document.getElementById('name').value.trim();
+
+      if (!id || !name) return alert("Member ID and Name are required fields.");
+
+      if (id.startsWith('E-') && id !== 'E-001' && id !== 'E-002') {
+        return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
+      }
+
+      const isEditorRole = document.getElementById('roleType').value === 'Editor';
+      let existing = members.find(m => m.id && m.id.toUpperCase() === id) || {};
+
+      const memberObj = {
+        id: id,
+        name: name,
+        age: document.getElementById('age').value,
+        phone: document.getElementById('phone').value,
+        familyTies: document.getElementById('familyTies').value,
+        isEditor: isEditorRole,
+        password: existing.password || "",
+        weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
+        loanAmount: existing.loanAmount || 0,
+        loanPaid: existing.loanPaid || 0
+      };
+
+      db.ref('members/' + id).set(memberObj).then(() => {
+        alert(`Member ${id} saved successfully!`);
+        clearProfileForm();
+      }).catch(err => alert("Error saving member: " + err.message));
+    });
+
+    // Login Toggle
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      if (isEditor) {
+        isEditor = false;
+        activeEditorId = "";
+        localStorage.removeItem('activeEditorId');
+        document.getElementById('roleBadge').innerHTML = `<i class="fa-solid fa-user-shield"></i> Role: Viewer (Read-Only)`;
+        document.getElementById('roleBadge').style.background = "#21262d";
+        document.getElementById('loginBtn').innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Editor Login`;
+      } else {
+        document.getElementById('modalLogin').classList.add('active');
+      }
+    });
+
+    // Submit Login
+    document.getElementById('btnSubmitLogin').addEventListener('click', () => {
+      const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
+      const pass = document.getElementById('loginPassInput').value;
+
+      if (id !== 'E-001' && id !== 'E-002') {
+        return alert("Access Denied: Only Editor IDs E-001 and E-002 are valid.");
+      }
+
+      db.ref('members/' + id).once('value').then(snap => {
+        const editorData = snap.val();
+        if (!editorData || !editorData.password) {
+          return alert("Editor profile not found or password missing.");
+        }
+
+        if (editorData.password === pass) {
+          localStorage.setItem('activeEditorId', id);
+          applyEditorUI(id);
+          closeModals();
+        } else {
+          alert("Incorrect Password!");
+        }
+      });
+    });
+
+    // Open Password Modal
+    document.getElementById('btnOpenReset').addEventListener('click', () => {
+      closeModals();
+      document.getElementById('modalReset').classList.add('active');
+    });
+
+    // Verify ID in Password Reset
+    document.getElementById('btnVerifyReset').addEventListener('click', () => {
+      const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
+      if (id !== 'E-001' && id !== 'E-002') {
+        document.getElementById('resetStatusMsg').innerText = "Error: Editor ID must be E-001 or E-002";
+        return;
+      }
+
+      db.ref('members/' + id).once('value').then(snap => {
+        if (!snap.exists()) {
+          document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist in database yet.`;
+          document.getElementById('resetFields').style.display = 'none';
+          return;
+        }
+        document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Enter Master PIN below.`;
+        document.getElementById('resetFields').style.display = 'block';
+      });
+    });
+
+    // Submit Reset with Master PIN
+    document.getElementById('btnSubmitReset').addEventListener('click', () => {
+      const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
+      const inputPin = document.getElementById('resetMasterPin').value.trim();
+      const p1 = document.getElementById('resetNewPass').value;
+      const p2 = document.getElementById('resetVerPass').value;
+
+      if (!id) return alert("Please enter an Editor ID.");
+      if (!inputPin) return alert("Admin Master PIN is required.");
+      if (!p1 || p1 !== p2) return alert("New passwords do not match.");
+
+      db.ref('system/masterPin').once('value')
+        .then(snap => {
+          const actualPin = snap.val();
+          if (!actualPin) throw new Error("masterPin is missing in database under 'system/masterPin'.");
+          if (String(actualPin) !== inputPin) throw new Error("Access Denied: Incorrect Master PIN!");
+          return db.ref('members/' + id).once('value');
+        })
+        .then(memberSnap => {
+          if (!memberSnap.exists()) throw new Error("Editor ID '" + id + "' was not found.");
+          return db.ref('members/' + id + '/password').set(p1);
+        })
+        .then(() => {
+          alert(`Password for Editor ${id} updated successfully!`);
+          document.getElementById('resetIdInput').value = '';
+          document.getElementById('resetMasterPin').value = '';
+          document.getElementById('resetNewPass').value = '';
+          document.getElementById('resetVerPass').value = '';
+          document.getElementById('resetFields').style.display = 'none';
+          document.getElementById('resetStatusMsg').innerText = '';
+          closeModals();
+        })
+        .catch(err => alert(err.message));
+    });
+
+    // Weekly Payments
+    document.getElementById('btnLoadWeekly').addEventListener('click', () => {
+      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+      const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+      if (!m) return alert(`Member ID ${id} not found.`);
+
+      const payments = getPaymentsArray(m.weeklyPayments);
+      for (let i = 0; i < 50; i++) {
+        document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
+      }
+    });
+
+    document.getElementById('btnSavePayments').addEventListener('click', () => {
+      if (!isEditor) return alert("Editor permission required.");
+      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+      if (!id) return alert("Enter Member ID first.");
+
+      const payments = [];
+      for (let i = 0; i < 50; i++) {
+        payments.push(document.getElementById(`wk_${i}`).value);
+      }
+
+      db.ref(`members/${id}/weeklyPayments`).set(payments)
+        .then(() => alert("Weekly payments saved!"))
+        .catch(err => alert("Save failed: " + err.message));
+    });
+
+    // Loans
+    document.getElementById('btnLoadLoans').addEventListener('click', () => {
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+      if (!m) return alert(`Member ID ${id} not found.`);
+
+      const lAmt = parseFloat(m.loanAmount) || 0;
+      const lPaid = parseFloat(m.loanPaid) || 0;
+      const lBal = Math.max(0, lAmt - lPaid);
+
+      document.getElementById('loanTotalVal').innerText = `₦${lAmt.toLocaleString()}`;
+      document.getElementById('loanPaidVal').innerText = `₦${lPaid.toLocaleString()}`;
+      document.getElementById('loanBalVal').innerText = `₦${lBal.toLocaleString()}`;
+    });
+
+    document.getElementById('btnAddLoan').addEventListener('click', () => {
+      if (!isEditor) return alert("Editor permission required.");
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const amt = parseFloat(document.getElementById('newLoanInput').value) || 0;
+      if (!id || amt <= 0) return alert("Provide valid ID and loan amount.");
+
+      const m = members.find(mem => mem.id && mem.id.toUpperCase() === id) || {};
+      const current = parseFloat(m.loanAmount) || 0;
+
+      db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
+        alert("Loan added!");
+        document.getElementById('newLoanInput').value = '';
+      });
+    });
+
+    document.getElementById('btnPayLoan').addEventListener('click', () => {
+      if (!isEditor) return alert("Editor permission required.");
+      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const amt = parseFloat(document.getElementById('payLoanInput').value) || 0;
+      if (!id || amt <= 0) return alert("Provide valid ID and payment amount.");
+
+      const m = members.find(mem => mem.id && mem.id.toUpperCase() === id) || {};
+      const current = parseFloat(m.loanPaid) || 0;
+
+      db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
+        alert("Repayment recorded!");
+        document.getElementById('payLoanInput').value = '';
+      });
+    });
+
+    // UI Renderers
+    function renderMembers() {
+      const container = document.getElementById('membersListContainer');
+      if (!container) return;
+      if (members.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fa-solid fa-folder-open"></i> No members recorded.</div>';
+        return;
+      }
+
+      let html = '';
+      members.forEach(m => {
+        const payments = getPaymentsArray(m.weeklyPayments);
+        const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+        const lAmt = parseFloat(m.loanAmount) || 0;
+        const lPaid = parseFloat(m.loanPaid) || 0;
+        const lBal = Math.max(0, lAmt - lPaid);
+
+        html += `
+          <div class="member-card">
+            <div class="member-header">
+              <span><i class="fa-solid fa-user"></i> ${m.name || 'Unnamed'} (${m.id || 'N/A'})</span>
+              <span style="color:${m.isEditor ? '#28a745' : '#888'};"><i class="fa-solid ${m.isEditor ? 'fa-user-gear' : 'fa-user'}"></i> ${m.isEditor ? 'Editor' : 'Member'}</span>
+            </div>
+            <div><i class="fa-solid fa-phone"></i> Phone: ${m.phone || 'N/A'} | <i class="fa-solid fa-people-roof"></i> Ties: ${m.familyTies || 'N/A'}</div>
+            <div style="margin-top:4px;">
+              <i class="fa-solid fa-piggy-bank"></i> Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
+              <i class="fa-solid fa-scale-unbalanced"></i> Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderSummary() {
+      let totalSaved = 0;
+      let totalLoans = 0;
+      let totalRepaid = 0;
+
+      members.forEach(m => {
+        const payments = getPaymentsArray(m.weeklyPayments);
+        totalSaved += payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+        totalLoans += parseFloat(m.loanAmount) || 0;
+        totalRepaid += parseFloat(m.loanPaid) || 0;
+      });
+
+      const totalLoanBal = Math.max(0, totalLoans - totalRepaid);
+      const grandNet = totalSaved - totalLoanBal;
+
+      document.getElementById('sumTotalSaved').innerText = `₦${totalSaved.toLocaleString()}`;
+      document.getElementById('sumTotalLoans').innerText = `₦${totalLoans.toLocaleString()}`;
+      document.getElementById('sumTotalRepaid').innerText = `₦${totalRepaid.toLocaleString()}`;
+      document.getElementById('sumTotalLoanBal').innerText = `₦${totalLoanBal.toLocaleString()}`;
+      document.getElementById('sumGrandNet').innerText = `₦${grandNet.toLocaleString()}`;
+      document.getElementById('sumTotalMembers').innerText = members.length;
+    }
+  </script>
+</body>
+</html>
