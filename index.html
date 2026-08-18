@@ -40,8 +40,10 @@
     .gen-label { font-size: 10px; color: #aaa; font-weight: bold; margin-bottom: 2px; }
     .gen-val { font-size: 16px; font-weight: bold; }
     
-    .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #00001a; border-top: 1px solid #333; height: 50px; z-index: 999; }
-    .tab-item { flex: 1; display: flex; justify-content: center; align-items: center; color: #888; font-size: 11px; font-weight: bold; cursor: pointer; text-align: center; }
+    /* ICON TAB BAR STYLES */
+    .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #00001a; border-top: 1px solid #333; height: 55px; z-index: 999; }
+    .tab-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; gap: 3px; }
+    .tab-item svg { width: 20px; height: 20px; fill: currentColor; }
     .tab-item.active { color: #007AFF; border-top: 2px solid #007AFF; background: #000030; }
     
     .tab-content { display: none; }
@@ -221,13 +223,28 @@
     </div>
   </div>
 
-  <!-- NAVIGATION TABS -->
+  <!-- NAVIGATION TABS WITH SVG ICONS -->
   <div class="tab-bar">
-    <div class="tab-item active" data-tab="Profile">Profile</div>
-    <div class="tab-item" data-tab="Weekly">Weekly</div>
-    <div class="tab-item" data-tab="Loans">Loans</div>
-    <div class="tab-item" data-tab="Members">Members</div>
-    <div class="tab-item" data-tab="Summary">Summary</div>
+    <div class="tab-item active" data-tab="Profile">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>Profile</span>
+    </div>
+    <div class="tab-item" data-tab="Weekly">
+      <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+      <span>Weekly</span>
+    </div>
+    <div class="tab-item" data-tab="Loans">
+      <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+      <span>Loans</span>
+    </div>
+    <div class="tab-item" data-tab="Members">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Members</span>
+    </div>
+    <div class="tab-item" data-tab="Summary">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+      <span>Summary</span>
+    </div>
   </div>
 
   <script>
@@ -253,6 +270,35 @@
       document.getElementById('statusBanner').innerText = "STATUS: " + msg;
     }
 
+    // Clear Profile Form Utility
+    function clearProfileForm() {
+      document.getElementById('memberId').value = '';
+      document.getElementById('name').value = '';
+      document.getElementById('age').value = '';
+      document.getElementById('phone').value = '';
+      document.getElementById('familyTies').value = '';
+      document.getElementById('roleType').value = 'Member';
+      document.getElementById('profWeeksPaid').innerText = '0';
+      document.getElementById('profAmountSaved').innerText = '₦0';
+      document.getElementById('profLoanAmount').innerText = '₦0';
+      document.getElementById('profLoanPaid').innerText = '₦0';
+      document.getElementById('profLoanBalance').innerText = '₦0';
+      document.getElementById('profNetBalance').innerText = '₦0';
+    }
+
+    // Auto-Restore Login Session on Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedEditorId = localStorage.getItem('activeEditorId');
+      if (savedEditorId) {
+        isEditor = true;
+        activeEditorId = savedEditorId;
+        document.getElementById('roleBadge').innerText = `Role: Editor (${savedEditorId})`;
+        document.getElementById('roleBadge').style.background = "#28a745";
+        document.getElementById('loginBtn').innerText = "Logout";
+        setStatus(`Restored session as Editor ${savedEditorId}`);
+      }
+    });
+
     // Build 50 Grid Cells
     const grid = document.getElementById('grid50');
     for (let i = 0; i < 50; i++) {
@@ -270,7 +316,7 @@
       }
     });
 
-    // Sync Data with Firebase (With Explicit Error Handling)
+    // Sync Data with Firebase
     db.ref('members').on('value', (snapshot) => {
       const data = snapshot.val();
       members = data ? Object.values(data) : [];
@@ -300,6 +346,7 @@
 
     // Auto-Generate New ID
     document.getElementById('btnNewID').addEventListener('click', () => {
+      clearProfileForm();
       const role = document.getElementById('roleType').value;
       const prefix = role === 'Editor' ? 'E-' : 'M-';
       
@@ -311,284 +358,20 @@
       const formattedId = prefix + String(nextNum).padStart(3, '0');
       
       document.getElementById('memberId').value = formattedId;
-      document.getElementById('name').value = '';
-      document.getElementById('age').value = '';
-      document.getElementById('phone').value = '';
-      document.getElementById('familyTies').value = '';
       setStatus(`Generated New ID: ${formattedId}`);
     });
 
-    // Editor Login
-    document.getElementById('loginBtn').addEventListener('click', () => {
-      if (isEditor) {
-        isEditor = false;
-        activeEditorId = "";
-        document.getElementById('roleBadge').innerText = "Role: Viewer (Read-Only)";
-        document.getElementById('roleBadge').style.background = "#333366";
-        document.getElementById('loginBtn').innerText = "Editor Login";
-        setStatus("Logged out to Viewer Mode.");
-      } else {
-        document.getElementById('modalLogin').classList.add('active');
-      }
-    });
-
-    document.getElementById('btnSubmitLogin').addEventListener('click', () => {
-      const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
-      const pass = document.getElementById('loginPassInput').value;
-
-      if (!id.startsWith('E-')) {
-        alert("Editor IDs must start with 'E-' (e.g. E-001)");
-        return;
-      }
-
-      let found = members.find(m => m.id && m.id.toUpperCase() === id);
-      if (!found || !found.password) {
-        alert("Editor profile not configured with a password. Click 'Forgot / Set Password?' below.");
-        return;
-      }
-
-      if (found.password === pass) {
-        isEditor = true;
-        activeEditorId = id;
-        document.getElementById('roleBadge').innerText = `Role: Editor (${id})`;
-        document.getElementById('roleBadge').style.background = "#28a745";
-        document.getElementById('loginBtn').innerText = "Logout";
-        closeModals();
-        setStatus(`Logged in as Editor ${id}`);
-      } else {
-        alert("Incorrect Password!");
-      }
-    });
-
-    document.getElementById('btnOpenReset').addEventListener('click', () => {
-      closeModals();
-      document.getElementById('modalReset').classList.add('active');
-    });
-
-    document.getElementById('btnVerifyReset').addEventListener('click', () => {
-      const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-      if (!id.startsWith('E-')) {
-        document.getElementById('resetStatusMsg').innerText = "Error: Editor ID must start with 'E-'";
-        return;
-      }
-      document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Set password below.`;
-      document.getElementById('resetFields').style.display = 'block';
-    });
-
-    document.getElementById('btnSubmitReset').addEventListener('click', () => {
-      const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-      const p1 = document.getElementById('resetNewPass').value;
-      const p2 = document.getElementById('resetVerPass').value;
-
-      if (!p1 || p1 !== p2) return alert("Passwords do not match!");
-
-      let idx = members.findIndex(m => m.id && m.id.toUpperCase() === id);
-      if (idx >= 0) {
-        members[idx].password = p1;
-      } else {
-        members.push({ id, name: "Editor " + id, password: p1, isEditor: true, weeklyPayments: new Array(50).fill(''), loanAmount: 0, loanPaid: 0 });
-      }
-
-      db.ref('members/' + id).set(members.find(m => m.id === id), (err) => {
-        if (err) alert("Save failed: " + err.message);
-        else {
-          closeModals();
-          setStatus(`Password created for ${id}. You can now log in!`);
-        }
-      });
-    });
-
-    // Save Member Data to Firebase
-    document.getElementById('btnSaveMember').addEventListener('click', () => {
-      if (!isEditor) return alert("Only active Editors can save modifications!");
-      const id = document.getElementById('memberId').value.trim().toUpperCase();
-      const name = document.getElementById('name').value.trim();
-      const age = document.getElementById('age').value;
-      const phone = document.getElementById('phone').value;
-      const familyTies = document.getElementById('familyTies').value;
-      const roleType = document.getElementById('roleType').value;
-
-      if (!id || !name) return alert("Member ID and Name are required!");
-
-      let existing = members.find(m => m.id === id) || {};
-      const updatedMember = {
-        id,
-        name,
-        age,
-        phone,
-        familyTies,
-        roleType,
-        password: existing.password || "",
-        weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
-        loanAmount: existing.loanAmount || 0,
-        loanPaid: existing.loanPaid || 0
-      };
-
-      db.ref('members/' + id).set(updatedMember, (err) => {
-        if (err) setStatus("Save Error: " + err.message);
-        else setStatus(`Member ${id} saved successfully!`);
-      });
-    });
-
-    // Load Profile
+    // Load Profile Handler
     document.getElementById('btnLoadProfile').addEventListener('click', () => {
-      const id = document.getElementById('memberId').value.trim().toUpperCase();
-      const m = members.find(mem => mem.id === id);
-      if (!m) return alert("Member not found!");
-
-      document.getElementById('name').value = m.name || '';
-      document.getElementById('age').value = m.age || '';
-      document.getElementById('phone').value = m.phone || '';
-      document.getElementById('familyTies').value = m.familyTies || '';
-      document.getElementById('roleType').value = m.roleType || 'Member';
-
-      const payments = m.weeklyPayments || [];
-      const weeksPaid = payments.filter(p => p !== '' && p !== null && Number(p) > 0).length;
-      const amountSaved = payments.reduce((sum, p) => sum + (Number(p) || 0), 0);
-      const loanAmount = Number(m.loanAmount) || 0;
-      const loanPaid = Number(m.loanPaid) || 0;
-      const loanBal = loanAmount - loanPaid;
-      const netBal = amountSaved - loanBal;
-
-      document.getElementById('profWeeksPaid').innerText = weeksPaid;
-      document.getElementById('profAmountSaved').innerText = '₦' + amountSaved.toLocaleString();
-      document.getElementById('profLoanAmount').innerText = '₦' + loanAmount.toLocaleString();
-      document.getElementById('profLoanPaid').innerText = '₦' + loanPaid.toLocaleString();
-      document.getElementById('profLoanBalance').innerText = '₦' + loanBal.toLocaleString();
-      document.getElementById('profNetBalance').innerText = '₦' + netBal.toLocaleString();
-      setStatus(`Loaded Profile: ${id}`);
-    });
-
-    // Load & Save Weekly Payments
-    document.getElementById('btnLoadWeekly').addEventListener('click', () => {
-      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
-      const m = members.find(mem => mem.id === id);
-      if (!m) return alert("Member not found!");
-
-      const payments = m.weeklyPayments || [];
-      for (let i = 0; i < 50; i++) {
-        document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
-      }
-      setStatus(`Loaded weekly payments for ${id}`);
-    });
-
-    document.getElementById('btnSavePayments').addEventListener('click', () => {
-      if (!isEditor) return alert("Only active Editors can save modifications!");
-      const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
-      if (!id) return alert("Please enter a Member ID!");
-
-      let payments = [];
-      for (let i = 0; i < 50; i++) {
-        payments.push(document.getElementById(`wk_${i}`).value);
-      }
-
-      db.ref(`members/${id}/weeklyPayments`).set(payments, (err) => {
-        if (err) setStatus("Save Error: " + err.message);
-        else setStatus(`Payments updated for ${id}`);
-      });
-    });
-
-    // Loans Management
-    document.getElementById('btnLoadLoans').addEventListener('click', () => {
-      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-      const m = members.find(mem => mem.id === id);
-      if (!m) return alert("Member not found!");
-
-      const loanTotal = Number(m.loanAmount) || 0;
-      const loanPaid = Number(m.loanPaid) || 0;
-      const bal = loanTotal - loanPaid;
-
-      document.getElementById('loanTotalVal').innerText = '₦' + loanTotal.toLocaleString();
-      document.getElementById('loanPaidVal').innerText = '₦' + loanPaid.toLocaleString();
-      document.getElementById('loanBalVal').innerText = '₦' + bal.toLocaleString();
-      setStatus(`Loaded loan data for ${id}`);
-    });
-
-    document.getElementById('btnAddLoan').addEventListener('click', () => {
-      if (!isEditor) return alert("Only active Editors can add loans!");
-      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-      const amt = Number(document.getElementById('newLoanInput').value);
-      if (!id || !amt) return alert("Enter valid Member ID and Loan Amount!");
-
-      const m = members.find(mem => mem.id === id);
-      if (!m) return alert("Member not found!");
-
-      const newTotal = (Number(m.loanAmount) || 0) + amt;
-      db.ref(`members/${id}/loanAmount`).set(newTotal, (err) => {
-        if (err) setStatus("Loan Error: " + err.message);
-        else {
-          document.getElementById('newLoanInput').value = '';
-          setStatus(`Added ₦${amt} loan to ${id}`);
-        }
-      });
-    });
-
-    document.getElementById('btnPayLoan').addEventListener('click', () => {
-      if (!isEditor) return alert("Only active Editors can record repayments!");
-      const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-      const amt = Number(document.getElementById('payLoanInput').value);
-      if (!id || !amt) return alert("Enter valid Member ID and Repayment Amount!");
-
-      const m = members.find(mem => mem.id === id);
-      if (!m) return alert("Member not found!");
-
-      const newPaid = (Number(m.loanPaid) || 0) + amt;
-      db.ref(`members/${id}/loanPaid`).set(newPaid, (err) => {
-        if (err) setStatus("Payment Error: " + err.message);
-        else {
-          document.getElementById('payLoanInput').value = '';
-          setStatus(`Recorded ₦${amt} repayment for ${id}`);
-        }
-      });
-    });
-
-    // Render Members List
-    function renderMembers() {
-      const container = document.getElementById('membersListContainer');
-      container.innerHTML = '';
-      if (members.length === 0) {
-        container.innerHTML = '<div style="text-align:center; font-size:11px; color:#aaa;">No members found.</div>';
+      const inputId = document.getElementById('memberId').value.trim().toUpperCase();
+      if (!inputId) {
+        alert("Please enter a Member ID!");
         return;
       }
-      members.forEach(m => {
-        const payments = m.weeklyPayments || [];
-        const saved = payments.reduce((s, p) => s + (Number(p) || 0), 0);
-        const loanBal = (Number(m.loanAmount) || 0) - (Number(m.loanPaid) || 0);
 
-        container.innerHTML += `
-          <div class="member-card">
-            <div class="member-header">
-              <span>${m.name || 'Unnamed'} (${m.id})</span>
-              <span>${m.roleType || 'Member'}</span>
-            </div>
-            <div>Saved: ₦${saved.toLocaleString()} | Loan Bal: ₦${loanBal.toLocaleString()}</div>
-          </div>`;
-      });
-    }
+      let m = members.find(mem => mem.id && mem.id.toUpperCase() === inputId);
 
-    // Render Summary
-    function renderSummary() {
-      let totalSaved = 0;
-      let totalLoans = 0;
-      let totalRepaid = 0;
-
-      members.forEach(m => {
-        const payments = m.weeklyPayments || [];
-        totalSaved += payments.reduce((s, p) => s + (Number(p) || 0), 0);
-        totalLoans += Number(m.loanAmount) || 0;
-        totalRepaid += Number(m.loanPaid) || 0;
-      });
-
-      const totalLoanBal = totalLoans - totalRepaid;
-      const grandNet = totalSaved - totalLoanBal;
-
-      document.getElementById('sumTotalSaved').innerText = '₦' + totalSaved.toLocaleString();
-      document.getElementById('sumTotalLoans').innerText = '₦' + totalLoans.toLocaleString();
-      document.getElementById('sumTotalRepaid').innerText = '₦' + totalRepaid.toLocaleString();
-      document.getElementById('sumTotalLoanBal').innerText = '₦' + totalLoanBal.toLocaleString();
-      document.getElementById('sumGrandNet').innerText = '₦' + grandNet.toLocaleString();
-      document.getElementById('sumTotalMembers').innerText = members.length;
-    }
-  </script>
-</body>
-</html>
+      if (!m) {
+        alert(`Member ID '${inputId}' not found in database.`);
+        clearProfileForm();
+       
