@@ -28,7 +28,6 @@
     .btn-row { display: flex; gap: 8px; margin: 10px 0; }
     .action-btn { flex: 1; background: #007AFF; color: #fff; border: none; border-radius: 4px; height: 34px; font-weight: bold; font-size: 11px; cursor: pointer; }
     .save-btn { background: #28a745; }
-    .clear-btn { background: #6c757d; }
     
     .summary-box { background: #000015; border-radius: 6px; padding: 10px; margin-top: 8px; }
     .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
@@ -109,7 +108,6 @@
 
       <div class="btn-row">
         <button class="action-btn" id="btnNewID">New ID</button>
-        <button class="action-btn clear-btn" id="btnClearProfile">Unlock / Clear</button>
         <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
       </div>
 
@@ -134,7 +132,6 @@
           <button class="load-btn-part" id="btnLoadWeekly">Load</button>
         </div>
       </div>
-      <!-- Member Name Confirmation Banner -->
       <div id="weeklyMemberName" class="name-display-tag"></div>
 
       <div class="grid-container" id="grid50"></div>
@@ -152,7 +149,6 @@
           <button class="load-btn-part" id="btnLoadLoans">Load</button>
         </div>
       </div>
-      <!-- Member Name Confirmation Banner -->
       <div id="loansMemberName" class="name-display-tag"></div>
 
       <div class="summary-box">
@@ -290,7 +286,7 @@
       </div>
     </div>
   </div>
-<!-- NAVIGATION TABS -->
+ <!-- NAVIGATION TABS -->
   <div class="tab-bar">
     <div class="tab-item active" data-tab="Profile">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -332,10 +328,9 @@
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
-    let isEditingExistingMember = false; // Flag to protect against accidental overwrites
+    let isEditingExistingMember = false;
     
-    // Auth & Action State variables
-    let pendingActionType = null; // 'DELETE', 'RESET_SINGLE', 'RESET_ALL'
+    let pendingActionType = null;
     let pendingTargetId = null;
 
     function setStatus(msg) {
@@ -372,7 +367,7 @@
     function clearProfileForm() {
       const idInput = document.getElementById('memberId');
       idInput.value = '';
-      idInput.readOnly = false; // Unlock ID input
+      idInput.readOnly = false;
       isEditingExistingMember = false;
 
       document.getElementById('profileIdStatus').innerText = '';
@@ -430,8 +425,7 @@
       document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
     }
     document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
-
-    // GENERATE NEW SEQUENTIAL ID (LOCKS INPUT)
+   // GENERATE NEW SEQUENTIAL ID (LOCKS INPUT)
     document.getElementById('btnNewID').addEventListener('click', () => {
       clearProfileForm();
       const role = document.getElementById('roleType').value;
@@ -458,16 +452,10 @@
         idInput.value = 'M-' + String(nextNum).padStart(3, '0');
       }
 
-      idInput.readOnly = true; // Lock field to prevent accidental typing
+      idInput.readOnly = true;
       isEditingExistingMember = false;
       document.getElementById('profileIdStatus').innerText = "🔒 Locked: Auto-generated New ID";
       setStatus("Generated New ID: " + idInput.value);
-    });
-
-    // UNLOCK / CLEAR PROFILE FORM
-    document.getElementById('btnClearProfile').addEventListener('click', () => {
-      clearProfileForm();
-      setStatus("Profile form reset.");
     });
 
     // LOAD PROFILE DATA (LOCKS INPUT UPON SUCCESS)
@@ -502,7 +490,6 @@
       document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
       document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
 
-      // Lock ID box to prevent changing ID mid-edit
       document.getElementById('memberId').value = inputId;
       document.getElementById('memberId').readOnly = true;
       isEditingExistingMember = true;
@@ -511,7 +498,7 @@
       setStatus(`Loaded Member ${inputId}`);
     });
 
-    // SAVE MEMBER WITH DUPLICATE / UNLOADED ID PROTECTION
+    // SAVE MEMBER WITH PREFIX & DUPLICATE PROTECTION
     document.getElementById('btnSaveMember').addEventListener('click', () => {
       if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
 
@@ -520,11 +507,15 @@
 
       if (!id || !name) return alert("Member ID and Name are required fields.");
 
+      // ID Prefix Validation Guardrail
+      if (!id.startsWith('M-') && !id.startsWith('E-')) {
+        return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-' (e.g. M-001 or E-001). Custom numbers like '0000' are not permitted.");
+      }
+
       if (id.startsWith('E-') && id !== 'E-001' && id !== 'E-002') {
         return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
       }
 
-      // Check if ID already exists in DB when creating a brand new member
       const existsInDb = members.some(m => m.id && m.id.toUpperCase() === id);
       if (existsInDb && !isEditingExistingMember) {
         return alert(`Security Alert: Member ID '${id}' already exists in the system!\n\nTo update this member, click 'Load' first.`);
@@ -649,7 +640,7 @@
         .catch(err => alert(err.message));
     });
 
-   // LOAD WEEKLY PAYMENTS + SHOW MEMBER NAME
+    // LOAD WEEKLY PAYMENTS + SHOW MEMBER NAME
     document.getElementById('btnLoadWeekly').addEventListener('click', () => {
       const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
       const nameTag = document.getElementById('weeklyMemberName');
@@ -665,7 +656,6 @@
         return alert(`Member ID ${id} not found.`);
       }
 
-      // Display member name confirmation
       nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
 
       const payments = getPaymentsArray(m.weeklyPayments);
@@ -709,7 +699,6 @@
         return alert(`Member ID ${id} not found.`);
       }
 
-      // Display member name confirmation
       nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
 
       const lAmt = parseFloat(m.loanAmount) || 0;
@@ -821,7 +810,7 @@
       }).catch(err => alert(err.message));
     });
 
-    // EXECUTE CONFIRMED ACTION (SAFE FIREBASE RESET LOGIC)
+    // EXECUTE CONFIRMED ACTION
     document.getElementById('btnExecuteAction').addEventListener('click', () => {
       if (pendingActionType === 'DELETE') {
         if (!pendingTargetId) return;
@@ -835,7 +824,6 @@
       } else if (pendingActionType === 'RESET_SINGLE') {
         if (!pendingTargetId) return;
         
-        // Safely clear financial records in Realtime DB without leaving empty array artifacts
         const updates = {};
         updates[`members/${pendingTargetId}/weeklyPayments`] = null;
         updates[`members/${pendingTargetId}/loanAmount`] = 0;
@@ -858,7 +846,6 @@
           }
         });
 
-        // Scoped directly under 'members' node
         db.ref('members').update(updates).then(() => {
           alert("All financial records for all members have been reset.");
           setStatus("All members' financial records reset.");
@@ -882,71 +869,4 @@
         const q = filterQuery.trim().toUpperCase();
         listToRender = members.filter(m => 
           (m.id && m.id.toUpperCase().includes(q)) || 
-          (m.name && m.name.toUpperCase().includes(q))
-        );
-      }
-
-      if (listToRender.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
-          ${filterQuery ? `No members found matching "${filterQuery}".` : 'No members recorded.'}
-        </div>`;
-        return;
-      }
-
-      let html = '';
-      listToRender.forEach(m => {
-        const payments = getPaymentsArray(m.weeklyPayments);
-        const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-        const lAmt = parseFloat(m.loanAmount) || 0;
-        const lPaid = parseFloat(m.loanPaid) || 0;
-        const lBal = Math.max(0, lAmt - lPaid);
-
-        html += `
-          <div class="member-card">
-            <div class="member-header">
-              <span>${m.name || 'Unnamed'} (${m.id || 'N/A'})</span>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="color:${m.isEditor ? '#28a745' : '#888'};">${m.isEditor ? 'Editor' : 'Member'}</span>
-                <button class="icon-action-btn reset-btn" onclick="initiateResetMember('${m.id}')" title="Reset Member Financials">
-                  <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-                </button>
-                <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
-                  <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                </button>
-              </div>
-            </div>
-            <div>Phone: ${m.phone || 'N/A'} | Ties: ${m.familyTies || 'N/A'}</div>
-            <div style="margin-top:4px;">
-              Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
-              Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
-            </div>
-          </div>`;
-      });
-      container.innerHTML = html;
-    }
-
-    function renderSummary() {
-      let totalSaved = 0;
-      let totalLoans = 0;
-      let totalRepaid = 0;
-
-      members.forEach(m => {
-        const payments = getPaymentsArray(m.weeklyPayments);
-        totalSaved += payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-        totalLoans += parseFloat(m.loanAmount) || 0;
-        totalRepaid += parseFloat(m.loanPaid) || 0;
-      });
-
-      const totalLoanBal = Math.max(0, totalLoans - totalRepaid);
-      const grandNet = totalSaved - totalLoanBal;
-
-      document.getElementById('sumTotalSaved').innerText = `₦${totalSaved.toLocaleString()}`;
-      document.getElementById('sumTotalLoans').innerText = `₦${totalLoans.toLocaleString()}`;
-      document.getElementById('sumTotalRepaid').innerText = `₦${totalRepaid.toLocaleString()}`;
-      document.getElementById('sumTotalLoanBal').innerText = `₦${totalLoanBal.toLocaleString()}`;
-      document.getElementById('sumGrandNet').innerText = `₦${grandNet.toLocaleString()}`;
-      document.getElementById('sumTotalMembers').innerText = members.length;
-    }
-  </script>
-</body>
-</html>
+          (m.name && m.n
