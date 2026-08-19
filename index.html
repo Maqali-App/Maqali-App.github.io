@@ -18,14 +18,17 @@
     .field-row { display: flex; align-items: center; margin-bottom: 8px; }
     .field-label { width: 90px; font-size: 11px; font-weight: bold; }
     .field-input { flex: 1; background: #333366; color: #fff; border: none; border-radius: 4px; padding: 6px 8px; height: 34px; font-size: 12px; }
+    .field-input:read-only { background: #222244; color: #aaa; cursor: not-allowed; }
     
     .shared-input-wrapper { flex: 1; display: flex; height: 34px; }
     .id-input-part { flex: 1; background: #333366; color: #fff; border: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px; padding: 6px 8px; font-size: 12px; }
+    .id-input-part:read-only { background: #222244; color: #ffd700; font-weight: bold; cursor: not-allowed; }
     .load-btn-part { width: 60px; background: #007AFF; color: #fff; border: none; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; }
     
     .btn-row { display: flex; gap: 8px; margin: 10px 0; }
     .action-btn { flex: 1; background: #007AFF; color: #fff; border: none; border-radius: 4px; height: 34px; font-weight: bold; font-size: 11px; cursor: pointer; }
     .save-btn { background: #28a745; }
+    .clear-btn { background: #6c757d; }
     
     .summary-box { background: #000015; border-radius: 6px; padding: 10px; margin-top: 8px; }
     .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
@@ -64,6 +67,8 @@
     .reset-btn { color: #ffd700; }
     .reset-btn:hover { background: rgba(255,215,0,0.2); }
     .icon-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+    .name-display-tag { font-size: 11px; color: #ffd700; font-weight: bold; margin-left: 90px; margin-bottom: 8px; min-height: 15px; }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -84,10 +89,12 @@
       <div class="field-row">
         <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="memberId" class="id-input-part" placeholder="M-001 or E-001">
+          <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
           <button class="load-btn-part" id="btnLoadProfile">Load</button>
         </div>
       </div>
+      <div id="profileIdStatus" style="font-size: 10px; color: #ffd700; margin-left: 90px; margin-bottom: 6px; min-height: 14px;"></div>
+      
       <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
       <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
       <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
@@ -102,6 +109,7 @@
 
       <div class="btn-row">
         <button class="action-btn" id="btnNewID">New ID</button>
+        <button class="action-btn clear-btn" id="btnClearProfile">Unlock / Clear</button>
         <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
       </div>
 
@@ -126,6 +134,9 @@
           <button class="load-btn-part" id="btnLoadWeekly">Load</button>
         </div>
       </div>
+      <!-- Member Name Confirmation Banner -->
+      <div id="weeklyMemberName" class="name-display-tag"></div>
+
       <div class="grid-container" id="grid50"></div>
       <button class="action-btn save-btn" id="btnSavePayments" style="width: 100%; margin-top: 12px;">Save Payments</button>
     </div>
@@ -141,6 +152,8 @@
           <button class="load-btn-part" id="btnLoadLoans">Load</button>
         </div>
       </div>
+      <!-- Member Name Confirmation Banner -->
+      <div id="loansMemberName" class="name-display-tag"></div>
 
       <div class="summary-box">
         <div class="summary-row"><span>Loan Total:</span><span id="loanTotalVal" class="summary-val">₦0</span></div>
@@ -277,8 +290,7 @@
       </div>
     </div>
   </div>
-
-  <!-- NAVIGATION TABS -->
+<!-- NAVIGATION TABS -->
   <div class="tab-bar">
     <div class="tab-item active" data-tab="Profile">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -320,6 +332,7 @@
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
+    let isEditingExistingMember = false; // Flag to protect against accidental overwrites
     
     // Auth & Action State variables
     let pendingActionType = null; // 'DELETE', 'RESET_SINGLE', 'RESET_ALL'
@@ -357,7 +370,12 @@
     }
 
     function clearProfileForm() {
-      document.getElementById('memberId').value = '';
+      const idInput = document.getElementById('memberId');
+      idInput.value = '';
+      idInput.readOnly = false; // Unlock ID input
+      isEditingExistingMember = false;
+
+      document.getElementById('profileIdStatus').innerText = '';
       document.getElementById('name').value = '';
       document.getElementById('age').value = '';
       document.getElementById('phone').value = '';
@@ -413,45 +431,53 @@
     }
     document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
+    // GENERATE NEW SEQUENTIAL ID (LOCKS INPUT)
     document.getElementById('btnNewID').addEventListener('click', () => {
       clearProfileForm();
       const role = document.getElementById('roleType').value;
+      const idInput = document.getElementById('memberId');
       
       if (role === 'Editor') {
         const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
         const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
 
         if (!hasE001) {
-          document.getElementById('memberId').value = 'E-001';
-          setStatus("Generated New ID: E-001");
+          idInput.value = 'E-001';
         } else if (!hasE002) {
-          document.getElementById('memberId').value = 'E-002';
-          setStatus("Generated New ID: E-002");
+          idInput.value = 'E-002';
         } else {
           alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
-          setStatus("Editor limit reached");
+          return;
         }
       } else {
         const existingNumbers = members
-          .filter(m => m.id && m.id.startsWith('M-'))
+          .filter(m => m.id && m.id.toUpperCase().startsWith('M-'))
           .map(m => parseInt(m.id.split('-')[1]) || 0);
 
         const nextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
-        const formattedId = 'M-' + String(nextNum).padStart(3, '0');
-        
-        document.getElementById('memberId').value = formattedId;
-        setStatus("Generated New ID: " + formattedId);
+        idInput.value = 'M-' + String(nextNum).padStart(3, '0');
       }
+
+      idInput.readOnly = true; // Lock field to prevent accidental typing
+      isEditingExistingMember = false;
+      document.getElementById('profileIdStatus').innerText = "🔒 Locked: Auto-generated New ID";
+      setStatus("Generated New ID: " + idInput.value);
     });
 
+    // UNLOCK / CLEAR PROFILE FORM
+    document.getElementById('btnClearProfile').addEventListener('click', () => {
+      clearProfileForm();
+      setStatus("Profile form reset.");
+    });
+
+    // LOAD PROFILE DATA (LOCKS INPUT UPON SUCCESS)
     document.getElementById('btnLoadProfile').addEventListener('click', () => {
       const inputId = document.getElementById('memberId').value.trim().toUpperCase();
-      if (!inputId) return alert("Please enter a Member ID!");
+      if (!inputId) return alert("Please enter a Member ID to load!");
 
       let m = members.find(mem => mem.id && mem.id.toUpperCase() === inputId);
       if (!m) {
         alert(`Member ID '${inputId}' not found in database.`);
-        clearProfileForm();
         return;
       }
 
@@ -475,9 +501,17 @@
       document.getElementById('profLoanPaid').innerText = `₦${lPaid.toLocaleString()}`;
       document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
       document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
+
+      // Lock ID box to prevent changing ID mid-edit
+      document.getElementById('memberId').value = inputId;
+      document.getElementById('memberId').readOnly = true;
+      isEditingExistingMember = true;
+      document.getElementById('profileIdStatus').innerText = "🔒 Locked: Editing Existing Member";
+
       setStatus(`Loaded Member ${inputId}`);
     });
 
+    // SAVE MEMBER WITH DUPLICATE / UNLOADED ID PROTECTION
     document.getElementById('btnSaveMember').addEventListener('click', () => {
       if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
 
@@ -488,6 +522,12 @@
 
       if (id.startsWith('E-') && id !== 'E-001' && id !== 'E-002') {
         return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
+      }
+
+      // Check if ID already exists in DB when creating a brand new member
+      const existsInDb = members.some(m => m.id && m.id.toUpperCase() === id);
+      if (existsInDb && !isEditingExistingMember) {
+        return alert(`Security Alert: Member ID '${id}' already exists in the system!\n\nTo update this member, click 'Load' first.`);
       }
 
       const isEditorRole = document.getElementById('roleType').value === 'Editor';
@@ -609,16 +649,30 @@
         .catch(err => alert(err.message));
     });
 
+   // LOAD WEEKLY PAYMENTS + SHOW MEMBER NAME
     document.getElementById('btnLoadWeekly').addEventListener('click', () => {
       const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+      const nameTag = document.getElementById('weeklyMemberName');
+
+      if (!id) {
+        nameTag.innerText = '';
+        return alert("Please enter a Member ID.");
+      }
+
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-      if (!m) return alert(`Member ID ${id} not found.`);
+      if (!m) {
+        nameTag.innerText = '';
+        return alert(`Member ID ${id} not found.`);
+      }
+
+      // Display member name confirmation
+      nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
 
       const payments = getPaymentsArray(m.weeklyPayments);
       for (let i = 0; i < 50; i++) {
         document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
       }
-      setStatus(`Weekly grid loaded for ${id}`);
+      setStatus(`Weekly grid loaded for ${id} (${m.name})`);
     });
 
     document.getElementById('btnSavePayments').addEventListener('click', () => {
@@ -639,10 +693,24 @@
         .catch(err => alert("Save failed: " + err.message));
     });
 
+    // LOAD LOANS DETAILS + SHOW MEMBER NAME
     document.getElementById('btnLoadLoans').addEventListener('click', () => {
       const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+      const nameTag = document.getElementById('loansMemberName');
+
+      if (!id) {
+        nameTag.innerText = '';
+        return alert("Please enter a Member ID.");
+      }
+
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-      if (!m) return alert(`Member ID ${id} not found.`);
+      if (!m) {
+        nameTag.innerText = '';
+        return alert(`Member ID ${id} not found.`);
+      }
+
+      // Display member name confirmation
+      nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
 
       const lAmt = parseFloat(m.loanAmount) || 0;
       const lPaid = parseFloat(m.loanPaid) || 0;
@@ -651,7 +719,7 @@
       document.getElementById('loanTotalVal').innerText = `₦${lAmt.toLocaleString()}`;
       document.getElementById('loanPaidVal').innerText = `₦${lPaid.toLocaleString()}`;
       document.getElementById('loanBalVal').innerText = `₦${lBal.toLocaleString()}`;
-      setStatus(`Loan details loaded for ${id}`);
+      setStatus(`Loan details loaded for ${id} (${m.name})`);
     });
 
     document.getElementById('btnAddLoan').addEventListener('click', () => {
@@ -753,7 +821,7 @@
       }).catch(err => alert(err.message));
     });
 
-    // EXECUTE CONFIRMED ACTION
+    // EXECUTE CONFIRMED ACTION (SAFE FIREBASE RESET LOGIC)
     document.getElementById('btnExecuteAction').addEventListener('click', () => {
       if (pendingActionType === 'DELETE') {
         if (!pendingTargetId) return;
@@ -766,12 +834,14 @@
 
       } else if (pendingActionType === 'RESET_SINGLE') {
         if (!pendingTargetId) return;
-        const resetData = {
-          weeklyPayments: new Array(50).fill(''),
-          loanAmount: 0,
-          loanPaid: 0
-        };
-        db.ref('members/' + pendingTargetId).update(resetData).then(() => {
+        
+        // Safely clear financial records in Realtime DB without leaving empty array artifacts
+        const updates = {};
+        updates[`members/${pendingTargetId}/weeklyPayments`] = null;
+        updates[`members/${pendingTargetId}/loanAmount`] = 0;
+        updates[`members/${pendingTargetId}/loanPaid`] = 0;
+
+        db.ref().update(updates).then(() => {
           alert(`Financial records for member ${pendingTargetId} reset successfully.`);
           setStatus(`Financial records for ${pendingTargetId} reset.`);
           closeModals();
@@ -782,13 +852,14 @@
         const updates = {};
         members.forEach(m => {
           if (m.id) {
-            updates[`members/${m.id}/weeklyPayments`] = new Array(50).fill('');
-            updates[`members/${m.id}/loanAmount`] = 0;
-            updates[`members/${m.id}/loanPaid`] = 0;
+            updates[`${m.id}/weeklyPayments`] = null;
+            updates[`${m.id}/loanAmount`] = 0;
+            updates[`${m.id}/loanPaid`] = 0;
           }
         });
 
-        db.ref().update(updates).then(() => {
+        // Scoped directly under 'members' node
+        db.ref('members').update(updates).then(() => {
           alert("All financial records for all members have been reset.");
           setStatus("All members' financial records reset.");
           closeModals();
@@ -879,4 +950,3 @@
   </script>
 </body>
 </html>
-     
