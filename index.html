@@ -335,15 +335,11 @@
     let pendingActionType = null;
     let pendingTargetId = null;
 
-    // --- HELPER FUNCTIONS FOR ID VALIDATION ---
-
-    // Extracts the highest numeric value from existing IDs for a given prefix (e.g., 'M-' or 'E-')
     function getHighestIDNumber(memberList, prefix) {
       let maxNum = 0;
       
       memberList.forEach(member => {
         if (member.id && member.id.startsWith(prefix)) {
-          // Extract numeric part after prefix (e.g., "M-005" -> 5)
           const numPart = parseInt(member.id.replace(prefix, ''), 10);
           if (!isNaN(numPart) && numPart > maxNum) {
             maxNum = numPart;
@@ -354,7 +350,6 @@
       return maxNum;
     }
 
-    // Formats a number with leading zeros (e.g., 6 -> "M-006")
     function formatID(prefix, number) {
       return prefix + String(number).padStart(3, '0');
     }
@@ -451,7 +446,6 @@
     }
     document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
-    // GENERATE NEW SEQUENTIAL ID (LOCKS INPUT)
     document.getElementById('btnNewID').addEventListener('click', () => {
       clearProfileForm();
       const role = document.getElementById('roleType').value;
@@ -479,7 +473,6 @@
       setStatus("Generated New ID: " + idInput.value);
     });
 
-    // LOAD PROFILE DATA (LOCKS INPUT UPON SUCCESS)
     document.getElementById('btnLoadProfile').addEventListener('click', () => {
       const inputId = document.getElementById('memberId').value.trim().toUpperCase();
       if (!inputId) return alert("Please enter a Member ID to load!");
@@ -518,7 +511,6 @@
       setStatus(`Loaded Member ${inputId}`);
     });
 
-    // --- SAVE MEMBER EVENT HANDLER WITH SEQUENTIAL ID VALIDATION ---
     document.getElementById('btnSaveMember').addEventListener('click', async () => {
       if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
 
@@ -530,7 +522,6 @@
         return;
       }
 
-      // Prefix Validation Guardrail
       if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) {
         return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-' (e.g. M-001 or E-001). Custom numbers are not permitted.");
       }
@@ -539,18 +530,14 @@
         return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
       }
 
-      // Check if member already exists in database
       const existingMember = members.find(m => m.id && m.id.toUpperCase() === typedId);
 
       if (!existingMember) {
-        // Determine prefix ('M-' or 'E-')
         const prefix = typedId.startsWith('E-') ? 'E-' : 'M-';
 
-        // Calculate highest existing ID and expected next sequential ID
         const maxNum = getHighestIDNumber(members, prefix);
         const expectedNextId = formatID(prefix, maxNum + 1);
 
-        // BLOCK SAVE: If typed ID does not match expected next ID in sequence
         if (typedId !== expectedNextId) {
           alert(`Invalid Sequence! You cannot skip IDs.\nThe next required sequential ID is: ${expectedNextId}`);
           return;
@@ -680,7 +667,6 @@
         .catch(err => alert(err.message));
     });
 
-    // LOAD WEEKLY PAYMENTS + SHOW MEMBER NAME
     document.getElementById('btnLoadWeekly').addEventListener('click', () => {
       const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
       const nameTag = document.getElementById('weeklyMemberName');
@@ -723,7 +709,6 @@
         .catch(err => alert("Save failed: " + err.message));
     });
 
-    // LOAD LOANS DETAILS + SHOW MEMBER NAME
     document.getElementById('btnLoadLoans').addEventListener('click', () => {
       const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
       const nameTag = document.getElementById('loansMemberName');
@@ -783,13 +768,11 @@
       });
     });
 
-    // SEARCH / LOAD IN MEMBERS TAB
     document.getElementById('btnSearchMember').addEventListener('click', () => {
       const query = document.getElementById('searchMemberId').value.trim();
       renderMembers(query);
     });
 
-    // DELETE MEMBER INITIATION
     function initiateDeleteMember(id) {
       if (!isEditor) return alert("Action Denied: Only Editors can delete members.");
       pendingActionType = 'DELETE';
@@ -799,7 +782,6 @@
       document.getElementById('modalSecurityPin').classList.add('active');
     }
 
-    // INDIVIDUAL RESET INITIATION
     function initiateResetMember(id) {
       if (!isEditor) return alert("Action Denied: Only Editors can reset financial records.");
       pendingActionType = 'RESET_SINGLE';
@@ -809,7 +791,6 @@
       document.getElementById('modalSecurityPin').classList.add('active');
     }
 
-    // GENERAL RESET ALL INITIATION
     document.getElementById('btnGeneralReset').addEventListener('click', () => {
       if (!isEditor) return alert("Action Denied: Only Editors can reset financial records.");
       pendingActionType = 'RESET_ALL';
@@ -819,7 +800,6 @@
       document.getElementById('modalSecurityPin').classList.add('active');
     });
 
-    // PIN VERIFICATION HANDLER
     document.getElementById('btnVerifySecurityPin').addEventListener('click', () => {
       const inputPin = document.getElementById('securityPinInput').value.trim();
       if (!inputPin) return alert("Please enter Admin Security PIN.");
@@ -850,7 +830,6 @@
       }).catch(err => alert(err.message));
     });
 
-    // EXECUTE CONFIRMED ACTION
     document.getElementById('btnExecuteAction').addEventListener('click', () => {
       if (pendingActionType === 'DELETE') {
         if (!pendingTargetId) return;
