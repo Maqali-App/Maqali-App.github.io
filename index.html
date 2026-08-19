@@ -56,7 +56,11 @@
     .link-btn { background: none; border: none; color: #007AFF; font-size: 11px; text-decoration: underline; cursor: pointer; margin-top: 8px; display: block; width: 100%; text-align: center; }
     
     .member-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 11px; }
-    .member-header { display: flex; justify-content: space-between; font-weight: bold; color: #ffd700; margin-bottom: 4px; }
+    .member-header { display: flex; justify-content: space-between; font-weight: bold; color: #ffd700; margin-bottom: 4px; align-items: center; }
+    
+    .delete-btn { background: none; border: none; color: #ff6b6b; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 4px; }
+    .delete-btn:hover { background: rgba(255,107,107,0.2); }
+    .delete-btn svg { width: 16px; height: 16px; fill: currentColor; }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -233,6 +237,34 @@
     </div>
   </div>
 
+  <!-- MODAL 1: DELETE SECURITY PIN -->
+  <div class="modal-overlay" id="modalDeletePin">
+    <div class="modal-box">
+      <div class="modal-title" style="color: #ff6b6b;">SECURITY VERIFICATION</div>
+      <div class="modal-subtitle">Enter Admin Security PIN to delete member</div>
+      <div class="field-row">
+        <span class="field-label">Master PIN</span>
+        <input type="password" id="deletePinInput" class="field-input" placeholder="Admin PIN">
+      </div>
+      <button class="action-btn" id="btnVerifyDeletePin" style="width: 100%; margin-top: 8px; background: #007AFF;">OK</button>
+      <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DELETE CONFIRMATION -->
+  <div class="modal-overlay" id="modalDeleteConfirm">
+    <div class="modal-box">
+      <div class="modal-title" style="color: #ff6b6b;">CONFIRM DELETION</div>
+      <div class="modal-subtitle" id="deleteConfirmMsg" style="color: #fff; font-size: 12px; margin: 12px 0;">
+        Are you sure you want to delete this member?
+      </div>
+      <div class="btn-row">
+        <button class="action-btn" id="btnConfirmDelete" style="background: #dc3545;">Confirm Delete</button>
+        <button class="action-btn btn-close-modal" style="background: #555;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- NAVIGATION TABS -->
   <div class="tab-bar">
     <div class="tab-item active" data-tab="Profile">
@@ -275,6 +307,7 @@
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
+    let memberToDeleteId = null;
 
     function setStatus(msg) {
       document.getElementById('statusBanner').innerText = "STATUS: " + msg;
@@ -322,7 +355,7 @@
       document.getElementById('profNetBalance').innerText = '₦0';
     }
 
-    const grid = document.getElementById('grid50');
+const grid = document.getElementById('grid50');
     for (let i = 0; i < 50; i++) {
       grid.innerHTML += `
         <div class="grid-cell">
@@ -380,7 +413,7 @@
           setStatus("Generated New ID: E-002");
         } else {
           alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
-          setStatus("Error: Editor maximum limit reached.");
+          setStatus("Editor limit reached");
         }
       } else {
         const existingNumbers = members
@@ -391,7 +424,7 @@
         const formattedId = 'M-' + String(nextNum).padStart(3, '0');
         
         document.getElementById('memberId').value = formattedId;
-        setStatus(`Generated New ID: ${formattedId}`);
+        setStatus("Generated New ID: " + formattedId);
       }
     });
 
@@ -426,12 +459,11 @@
       document.getElementById('profLoanPaid').innerText = `₦${lPaid.toLocaleString()}`;
       document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
       document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
-
-      setStatus(`Loaded Profile: ${m.id}`);
+      setStatus(`Loaded Member ${inputId}`);
     });
 
     document.getElementById('btnSaveMember').addEventListener('click', () => {
-      if (!isEditor) return alert("Action Denied: You must be logged in as an Editor to save member details.");
+      if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
 
       const id = document.getElementById('memberId').value.trim().toUpperCase();
       const name = document.getElementById('name').value.trim();
@@ -461,7 +493,7 @@
       db.ref('members/' + id).set(memberObj).then(() => {
         alert(`Member ${id} saved successfully!`);
         clearProfileForm();
-        setStatus(`Saved Member: ${id}`);
+        setStatus(`Member ${id} saved.`);
       }).catch(err => alert("Error saving member: " + err.message));
     });
 
@@ -473,7 +505,7 @@
         document.getElementById('roleBadge').innerText = "Role: Viewer (Read-Only)";
         document.getElementById('roleBadge').style.background = "#333366";
         document.getElementById('loginBtn').innerText = "Editor Login";
-        setStatus("Logged out to Viewer Mode.");
+        setStatus("Logged out. Switched to Viewer Mode.");
       } else {
         document.getElementById('modalLogin').classList.add('active');
       }
@@ -490,7 +522,7 @@
       db.ref('members/' + id).once('value').then(snap => {
         const editorData = snap.val();
         if (!editorData || !editorData.password) {
-          return alert("Editor profile not found or password missing. Set password first.");
+          return alert("Editor profile not found or password missing.");
         }
 
         if (editorData.password === pass) {
@@ -518,54 +550,34 @@
 
       db.ref('members/' + id).once('value').then(snap => {
         if (!snap.exists()) {
-          document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist in database yet. Create profile first.`;
+          document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist in database yet.`;
           document.getElementById('resetFields').style.display = 'none';
           return;
         }
-        document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Enter Master PIN and new password below.`;
+        document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Enter Master PIN below.`;
         document.getElementById('resetFields').style.display = 'block';
       });
     });
 
-    // MASTER RECOVERY PIN SUBMISSION & UPDATE LOGIC
     document.getElementById('btnSubmitReset').addEventListener('click', () => {
       const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
       const inputPin = document.getElementById('resetMasterPin').value.trim();
       const p1 = document.getElementById('resetNewPass').value;
       const p2 = document.getElementById('resetVerPass').value;
 
-      if (!id) {
-        return alert("Please enter an Editor ID.");
-      }
-      if (!inputPin) {
-        return alert("Authorization Error: Admin Master PIN is required.");
-      }
-      if (!p1 || p1 !== p2) {
-        return alert("Validation Error: New passwords do not match.");
-      }
+      if (!id) return alert("Please enter an Editor ID.");
+      if (!inputPin) return alert("Admin Master PIN is required.");
+      if (!p1 || p1 !== p2) return alert("New passwords do not match.");
 
-      // 1. Fetch Master PIN from /system/masterPin
       db.ref('system/masterPin').once('value')
         .then(snap => {
           const actualPin = snap.val();
-
-          if (!actualPin) {
-            throw new Error("Configuration Error: 'masterPin' is missing in database under 'system/masterPin'.");
-          }
-
-          if (String(actualPin) !== inputPin) {
-            throw new Error("Access Denied: Incorrect Master PIN!");
-          }
-
-          // 2. Check if Editor ID exists under /members
+          if (!actualPin) throw new Error("masterPin is missing in database under 'system/masterPin'.");
+          if (String(actualPin) !== inputPin) throw new Error("Access Denied: Incorrect Master PIN!");
           return db.ref('members/' + id).once('value');
         })
         .then(memberSnap => {
-          if (!memberSnap.exists()) {
-            throw new Error("Editor ID '" + id + "' was not found in the database.");
-          }
-
-          // 3. Update password in database
+          if (!memberSnap.exists()) throw new Error("Editor ID '" + id + "' was not found.");
           return db.ref('members/' + id + '/password').set(p1);
         })
         .then(() => {
@@ -590,7 +602,7 @@
       for (let i = 0; i < 50; i++) {
         document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
       }
-      setStatus(`Loaded weekly records for ${id}`);
+      setStatus(`Weekly grid loaded for ${id}`);
     });
 
     document.getElementById('btnSavePayments').addEventListener('click', () => {
@@ -604,7 +616,10 @@
       }
 
       db.ref(`members/${id}/weeklyPayments`).set(payments)
-        .then(() => alert("Weekly payments saved!"))
+        .then(() => {
+          alert("Weekly payments saved!");
+          setStatus(`Weekly payments saved for ${id}`);
+        })
         .catch(err => alert("Save failed: " + err.message));
     });
 
@@ -620,7 +635,7 @@
       document.getElementById('loanTotalVal').innerText = `₦${lAmt.toLocaleString()}`;
       document.getElementById('loanPaidVal').innerText = `₦${lPaid.toLocaleString()}`;
       document.getElementById('loanBalVal').innerText = `₦${lBal.toLocaleString()}`;
-      setStatus(`Loaded loan balances for ${id}`);
+      setStatus(`Loan details loaded for ${id}`);
     });
 
     document.getElementById('btnAddLoan').addEventListener('click', () => {
@@ -635,6 +650,7 @@
       db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
         alert("Loan added!");
         document.getElementById('newLoanInput').value = '';
+        setStatus(`Added ₦${amt} loan to ${id}`);
       });
     });
 
@@ -650,11 +666,49 @@
       db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
         alert("Repayment recorded!");
         document.getElementById('payLoanInput').value = '';
+        setStatus(`Recorded ₦${amt} repayment for ${id}`);
       });
+    });
+
+    // DELETE MEMBER LOGIC
+    function initiateDeleteMember(id) {
+      if (!isEditor) return alert("Action Denied: Only Editors can delete members.");
+      memberToDeleteId = id;
+      document.getElementById('deletePinInput').value = '';
+      document.getElementById('modalDeletePin').classList.add('active');
+    }
+
+    document.getElementById('btnVerifyDeletePin').addEventListener('click', () => {
+      const inputPin = document.getElementById('deletePinInput').value.trim();
+      if (!inputPin) return alert("Please enter Admin Security PIN.");
+
+      db.ref('system/masterPin').once('value').then(snap => {
+        const actualPin = snap.val();
+        if (!actualPin) throw new Error("masterPin missing in database under 'system/masterPin'.");
+        if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
+
+        closeModals();
+        const m = members.find(mem => mem.id && mem.id.toUpperCase() === memberToDeleteId);
+        const name = m ? m.name : memberToDeleteId;
+        document.getElementById('deleteConfirmMsg').innerText = `Are you sure you want to delete member ${name} (${memberToDeleteId})? This action cannot be undone.`;
+        document.getElementById('modalDeleteConfirm').classList.add('active');
+      }).catch(err => alert(err.message));
+    });
+
+    document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+      if (!memberToDeleteId) return;
+
+      db.ref('members/' + memberToDeleteId).remove().then(() => {
+        alert(`Member ${memberToDeleteId} deleted successfully.`);
+        setStatus(`Member ${memberToDeleteId} deleted.`);
+        closeModals();
+        memberToDeleteId = null;
+      }).catch(err => alert("Delete failed: " + err.message));
     });
 
     function renderMembers() {
       const container = document.getElementById('membersListContainer');
+      if (!container) return;
       if (members.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">No members recorded.</div>';
         return;
@@ -672,7 +726,12 @@
           <div class="member-card">
             <div class="member-header">
               <span>${m.name || 'Unnamed'} (${m.id || 'N/A'})</span>
-              <span style="color:${m.isEditor ? '#28a745' : '#888'};">${m.isEditor ? 'Editor' : 'Member'}</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color:${m.isEditor ? '#28a745' : '#888'};">${m.isEditor ? 'Editor' : 'Member'}</span>
+                <button class="delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
+                  <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+              </div>
             </div>
             <div>Phone: ${m.phone || 'N/A'} | Ties: ${m.familyTies || 'N/A'}</div>
             <div style="margin-top:4px;">
