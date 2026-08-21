@@ -312,6 +312,7 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script>
     const firebaseConfig = {
       apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -323,10 +324,11 @@
       appId: "1:458036803827:web:a7d2f61d1256fdfca21f86",
       measurementId: "G-RE6DXYQ0RL"
     };
-
+    
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-
+    firebase.auth().signInAnonymously();
+    
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
