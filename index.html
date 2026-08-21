@@ -326,9 +326,15 @@
     };
     
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    firebase.auth().signInAnonymously();
-    
+
+// Force HTTPS long polling to bypass network/ISP WebSocket blocks
+if (firebase.database.INTERNAL && firebase.database.INTERNAL.forceLongPolling) {
+  firebase.database.INTERNAL.forceLongPolling();
+}
+
+const db = firebase.database();
+firebase.auth().signInAnonymously();
+
     let members = [];
     let isEditor = false;
     let activeEditorId = "";
