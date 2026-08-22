@@ -2,7 +2,18 @@
 <html lang="en">
 <head>
 <style>
-  /* Force ALL inputs, buttons, and selects to be fully clickable when logged in as Editor */
+  /* 1. Global Touch & Click Unlocks for Editor Mode */
+  body.is-editor,
+  body.is-editor *,
+  body.is-editor form,
+  body.is-editor .card,
+  body.is-editor .container,
+  body.is-editor .main-content {
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
   body.is-editor input,
   body.is-editor select,
   body.is-editor textarea,
@@ -10,18 +21,29 @@
     pointer-events: auto !important;
     opacity: 1 !important;
     cursor: pointer !important;
-    user-select: text !important;
-    -webkit-user-select: text !important;
+    display: inline-block !important;
   }
 
-  /* Force navigation tabs open when ANY user is logged in */
+  /* 2. Global Bottom Navigation Unlock for Logged-In Users */
+  body.is-logged-in nav,
+  body.is-logged-in footer,
+  body.is-logged-in .bottom-nav,
   body.is-logged-in .tab-btn,
   body.is-logged-in .nav-item,
   body.is-logged-in footer button,
-  body.is-logged-in nav button {
+  body.is-logged-in nav button,
+  body.is-logged-in footer a,
+  body.is-logged-in nav a {
     pointer-events: auto !important;
     opacity: 1 !important;
     cursor: pointer !important;
+  }
+
+  /* 3. Remove hardcoded dark masks or transparent overlays */
+  body.is-editor .overlay,
+  body.is-editor .modal-backdrop {
+    display: none !important;
+    pointer-events: none !important;
   }
 </style>
 
