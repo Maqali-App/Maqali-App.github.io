@@ -144,8 +144,8 @@ function lockAllTabs() {
   document.querySelectorAll('input, select, button').forEach(el => {
     if (
       el.id !== 'loginBtn' &&
-      !el.closest('.modal-overlay') &&          // skip modal elements
-      !el.classList.contains('btn-close-modal') // also skip close buttons
+      !el.closest('.modal-overlay') &&
+      !el.classList.contains('btn-close-modal')
     ) {
       el.disabled = true;
     }
@@ -172,6 +172,13 @@ function unlockAllTabs() {
   }
 }
 
+// Helper to enable all fields inside a specific modal
+function enableModalElements(modalId) {
+  document.querySelectorAll(`#${modalId} input, #${modalId} select, #${modalId} button`).forEach(el => {
+    el.disabled = false;
+  });
+}
+
 function showLoginPrompt() {
   const profileTab = document.getElementById('tab-Profile');
   if (profileTab) {
@@ -196,13 +203,18 @@ function showLoginPrompt() {
           Please log in to view your data.<br>
           Contact an editor if you don't have an account.
         </div>
-        <button onclick="document.getElementById('loginBtn').click()" 
-                style="background: #007AFF; color: #fff; border: none; border-radius: 4px; 
+        <button id="loginPromptBtn" style="background: #007AFF; color: #fff; border: none; border-radius: 4px; 
                        padding: 10px 20px; font-size: 12px; font-weight: bold; cursor: pointer;">
           Login Now
         </button>
       `;
       profileTab.insertBefore(loginPrompt, profileTab.firstChild);
+      
+      // Add click event to the prompt button to open login modal and enable its fields
+      document.getElementById('loginPromptBtn').addEventListener('click', () => {
+        enableModalElements('modalLogin');
+        document.getElementById('modalLogin').classList.add('active');
+      });
     }
   }
 }
@@ -453,6 +465,7 @@ document.getElementById('loginBtn').addEventListener('click', () => {
     setViewerMode();
     setStatus("Logged out. Switched to Viewer Mode.");
   } else {
+    enableModalElements('modalLogin');
     document.getElementById('modalLogin').classList.add('active');
   }
 });
@@ -481,6 +494,7 @@ document.getElementById('btnSubmitLogin').addEventListener('click', () => {
 // ------------------- PASSWORD RECOVERY -------------------
 document.getElementById('btnOpenReset').addEventListener('click', () => {
   closeModals();
+  enableModalElements('modalReset');
   document.getElementById('modalReset').classList.add('active');
 });
 
