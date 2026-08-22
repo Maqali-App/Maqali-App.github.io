@@ -1,4 +1,4 @@
-// APP.JS - Corrected Version
+// APP.JS – Final version with explicit viewer mode and universal login
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -12,32 +12,28 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-
-// Removed non‑standard forceLongPolling block.
-
 const db = firebase.database();
 
-// Fix #4: Add .catch() to anonymous sign‑in
 firebase.auth().signInAnonymously()
   .catch(err => console.warn("Anonymous auth failed:", err));
 
 let members = [];
 let isEditor = false;
-let activeEditorId = "";
+let activeUserId = "";
+let activeUserRole = "viewer";  // "viewer", "member", or "editor"
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
 let pendingTargetId = null;
 
+const DEFAULT_PASSWORD = "1234";
+
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
   memberList.forEach(member => {
-    // Fix #3: Safe check for member.id type
     if (typeof member.id === 'string' && member.id.startsWith(prefix)) {
       const numPart = parseInt(member.id.replace(prefix, ''), 10);
-      if (!isNaN(numPart) && numPart > maxNum) {
-        maxNum = numPart;
-      }
+      if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
     }
   });
   return maxNum;
@@ -51,28 +47,93 @@ function setStatus(msg) {
   document.getElementById('statusBanner').innerText = "STATUS: " + msg;
 }
 
+// ------------------- UI STATE MANAGEMENT -------------------
+function setViewerMode() {
+  isEditor = false;
+  activeUserId = "";
+  activeUserRole = "viewer";
+  document.getElementById('roleBadge').innerText = "Role: Viewer (Read-Only)";
+  document.getElementById('roleBadge').style.background = "#333366";
+  document.getElementById('loginBtn').innerText = "Member Login";
+  updateTabsVisibility();
+
+  // Unlock ID fields for manual entry
+  ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
+    const el = document.getElementById(fid);
+    el.readOnly = false;
+  });
+
+  // Clear any previously locked UI
+  document.getElementById('memberId').readOnly = false;
+  isEditingExistingMember = false;
+  setStatus("Viewer Mode – you can browse all data but cannot edit.");
+}
+
 function applyEditorUI(editorId) {
   isEditor = true;
-  activeEditorId = editorId;
+  activeUserId = editorId;
+  activeUserRole = "editor";
   document.getElementById('roleBadge').innerText = `Role: Editor (${editorId})`;
   document.getElementById('roleBadge').style.background = "#28a745";
   document.getElementById('loginBtn').innerText = "Logout";
+  updateTabsVisibility();
 }
 
-function restoreSession() {
-  const savedEditorId = localStorage.getItem('activeEditorId');
-  if (savedEditorId) {
-    // Fix #6: Validate that the saved editor still exists
-    const editorExists = members.some(m => m.id === savedEditorId);
-    if (editorExists) {
-      applyEditorUI(savedEditorId);
-      setStatus(`Session restored as Editor ${savedEditorId}`);
-    } else {
-      localStorage.removeItem('activeEditorId');
-    }
+function applyMemberUI(memberId) {
+  isEditor = false;
+  activeUserId = memberId;
+  activeUserRole = "member";
+  document.getElementById('roleBadge').innerText = `Role: Member (${memberId})`;
+  document.getElementById('roleBadge').style.background = "#333366";
+  document.getElementById('loginBtn').innerText = "Logout";
+  updateTabsVisibility();
+
+  // Lock all ID inputs to this member's ID
+  ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
+    const el = document.getElementById(fid);
+    el.value = memberId;
+    el.readOnly = true;
+  });
+
+  // Auto-load member's data
+  loadProfileForMember(memberId);
+  loadWeeklyForMember(memberId);
+  loadLoansForMember(memberId);
+}
+
+function updateTabsVisibility() {
+  const membersTab = document.querySelector('.tab-item[data-tab="Members"]');
+  if (!membersTab) return;
+
+  // Hide Members tab only for logged-in normal members
+  if (activeUserRole === "member") {
+    membersTab.style.display = "none";
+  } else {
+    membersTab.style.display = "flex";
   }
 }
 
+function restoreSession() {
+  const savedId = localStorage.getItem('activeUserId');
+  if (savedId) {
+    const found = members.find(m => m.id === savedId);
+    if (found) {
+      if (found.isEditor) {
+        applyEditorUI(savedId);
+      } else {
+        applyMemberUI(savedId);
+      }
+      setStatus(`Session restored as ${found.isEditor ? 'Editor' : 'Member'} ${savedId}`);
+      return;
+    } else {
+      localStorage.removeItem('activeUserId');
+    }
+  }
+  // No valid session -> stay in viewer mode
+  setViewerMode();
+}
+
+// ------------------- DATA HELPERS -------------------
 function getPaymentsArray(raw) {
   if (!raw) return new Array(50).fill('');
   if (Array.isArray(raw)) return raw;
@@ -95,6 +156,7 @@ function clearProfileForm() {
   document.getElementById('phone').value = '';
   document.getElementById('familyTies').value = '';
   document.getElementById('roleType').value = 'Member';
+  document.getElementById('password').value = '';
   document.getElementById('profWeeksPaid').innerText = '0';
   document.getElementById('profAmountSaved').innerText = '₦0';
   document.getElementById('profLoanAmount').innerText = '₦0';
@@ -103,6 +165,7 @@ function clearProfileForm() {
   document.getElementById('profNetBalance').innerText = '₦0';
 }
 
+// ------------------- BUILD WEEKLY GRID -------------------
 const grid = document.getElementById('grid50');
 for (let i = 0; i < 50; i++) {
   grid.innerHTML += `
@@ -112,12 +175,10 @@ for (let i = 0; i < 50; i++) {
     </div>`;
 }
 
+// ------------------- FIREBASE LISTENERS -------------------
 db.ref('.info/connected').on('value', (snap) => {
-  if (snap.val() === true) {
-    setStatus("Connected to Cloud Database.");
-  } else {
-    setStatus("Connecting / Disconnected from Cloud Server...");
-  }
+  if (snap.val() === true) setStatus("Connected to Cloud Database.");
+  else setStatus("Connecting / Disconnected from Cloud Server...");
 });
 
 db.ref('members').on('value', (snapshot) => {
@@ -125,11 +186,16 @@ db.ref('members').on('value', (snapshot) => {
   members = data ? Object.values(data) : [];
   renderMembers();
   renderSummary();
-  restoreSession();
+  // Only restore session on first data load
+  if (!window._sessionRestored) {
+    restoreSession();
+    window._sessionRestored = true;
+  }
 }, (error) => {
   setStatus("Database Error: " + error.message);
 });
 
+// ------------------- SLIDING TABS -------------------
 document.querySelectorAll('.tab-item').forEach(item => {
   item.addEventListener('click', function() {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
@@ -145,8 +211,9 @@ function closeModals() {
 }
 document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
+// ------------------- PROFILE TAB -------------------
 document.getElementById('btnNewID').addEventListener('click', () => {
-  // Fix #1: Read role BEFORE clearing form
+  if (!isEditor) return alert("Action Denied: Only Editors can create new IDs.");
   const role = document.getElementById('roleType').value;
   clearProfileForm();
   const idInput = document.getElementById('memberId');
@@ -154,7 +221,6 @@ document.getElementById('btnNewID').addEventListener('click', () => {
   if (role === 'Editor') {
     const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
     const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
-
     if (!hasE001) {
       idInput.value = 'E-001';
     } else if (!hasE002) {
@@ -173,13 +239,10 @@ document.getElementById('btnNewID').addEventListener('click', () => {
   setStatus("Generated New ID: " + idInput.value);
 });
 
-document.getElementById('btnLoadProfile').addEventListener('click', () => {
-  const inputId = document.getElementById('memberId').value.trim().toUpperCase();
-  if (!inputId) return alert("Please enter a Member ID to load!");
-
-  let m = members.find(mem => mem.id && mem.id.toUpperCase() === inputId);
+function loadProfileForMember(id) {
+  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) {
-    alert(`Member ID '${inputId}' not found in database.`);
+    alert(`Member ID '${id}' not found.`);
     return;
   }
 
@@ -188,6 +251,7 @@ document.getElementById('btnLoadProfile').addEventListener('click', () => {
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
+  document.getElementById('password').value = ''; // never show password
 
   const payments = getPaymentsArray(m.weeklyPayments);
   const wPaid = payments.filter(val => val !== "" && val !== null && !isNaN(val)).length;
@@ -204,11 +268,20 @@ document.getElementById('btnLoadProfile').addEventListener('click', () => {
   document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
   document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
 
-  document.getElementById('memberId').value = inputId;
+  document.getElementById('memberId').value = id;
   document.getElementById('memberId').readOnly = true;
   isEditingExistingMember = true;
+  setStatus(`Loaded Profile for ${id}`);
+}
 
-  setStatus(`Loaded Member ${inputId}`);
+document.getElementById('btnLoadProfile').addEventListener('click', () => {
+  if (activeUserRole === "member") {
+    loadProfileForMember(activeUserId);
+    return;
+  }
+  const inputId = document.getElementById('memberId').value.trim().toUpperCase();
+  if (!inputId) return alert("Please enter a Member ID to load!");
+  loadProfileForMember(inputId);
 });
 
 document.getElementById('btnSaveMember').addEventListener('click', async () => {
@@ -217,52 +290,40 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   const typedId = document.getElementById('memberId').value.trim().toUpperCase();
   const name = document.getElementById('name').value.trim();
 
-  if (!typedId || !name) {
-    alert("Please enter both Member ID and Name.");
-    return;
-  }
+  if (!typedId || !name) return alert("Please enter both Member ID and Name.");
+  if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) 
+    return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-'.");
 
-  if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) {
-    return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-' (e.g. M-001 or E-001). Custom numbers are not permitted.");
-  }
-
-  if (typedId.startsWith('E-') && typedId !== 'E-001' && typedId !== 'E-002') {
+  if (typedId.startsWith('E-') && typedId !== 'E-001' && typedId !== 'E-002') 
     return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
-  }
 
   const existingMember = members.find(m => m.id && m.id.toUpperCase() === typedId);
-
   if (!existingMember) {
     const prefix = typedId.startsWith('E-') ? 'E-' : 'M-';
     const maxNum = getHighestIDNumber(members, prefix);
     const expectedNextId = formatID(prefix, maxNum + 1);
-
     if (typedId !== expectedNextId) {
-      alert(`Invalid Sequence! You cannot skip IDs.\nThe next required sequential ID is: ${expectedNextId}`);
+      alert(`Invalid Sequence! Next required ID is: ${expectedNextId}`);
       return;
     }
   }
 
   const isEditorRole = document.getElementById('roleType').value === 'Editor';
-  
-  // Fix #5: Validate role/ID consistency
-  if (typedId.startsWith('E-') && !isEditorRole) {
-    return alert("E- IDs must have Role Type = Editor.");
-  }
-  if (typedId.startsWith('M-') && isEditorRole) {
-    return alert("M- IDs cannot be Editor.");
-  }
+  if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
+  if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
   let existing = existingMember || {};
+  const passwordInput = document.getElementById('password').value.trim();
+  const password = passwordInput || existing.password || DEFAULT_PASSWORD;
 
   const memberObj = {
     id: typedId,
-    name: name,
+    name,
     age: document.getElementById('age').value,
     phone: document.getElementById('phone').value,
     familyTies: document.getElementById('familyTies').value,
     isEditor: isEditorRole,
-    password: existing.password || "",
+    password,
     weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
     loanAmount: existing.loanAmount || 0,
     loanPaid: existing.loanPaid || 0
@@ -279,14 +340,12 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   }
 });
 
+// ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
-  if (isEditor) {
-    isEditor = false;
-    activeEditorId = "";
-    localStorage.removeItem('activeEditorId');
-    document.getElementById('roleBadge').innerText = "Role: Viewer (Read-Only)";
-    document.getElementById('roleBadge').style.background = "#333366";
-    document.getElementById('loginBtn').innerText = "Editor Login";
+  if (activeUserId) {
+    // Logout
+    localStorage.removeItem('activeUserId');
+    setViewerMode();
     setStatus("Logged out. Switched to Viewer Mode.");
   } else {
     document.getElementById('modalLogin').classList.add('active');
@@ -296,28 +355,25 @@ document.getElementById('loginBtn').addEventListener('click', () => {
 document.getElementById('btnSubmitLogin').addEventListener('click', () => {
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
-
-  if (id !== 'E-001' && id !== 'E-002') {
-    return alert("Access Denied: Only Editor IDs E-001 and E-002 are valid.");
-  }
+  if (!id) return alert("Please enter your Member ID.");
 
   db.ref('members/' + id).once('value').then(snap => {
-    const editorData = snap.val();
-    if (!editorData || !editorData.password) {
-      return alert("Editor profile not found or password missing.");
-    }
-
-    if (editorData.password === pass) {
-      localStorage.setItem('activeEditorId', id);
-      applyEditorUI(id);
+    const member = snap.val();
+    if (!member) return alert("Member ID not found.");
+    const storedPass = member.password || DEFAULT_PASSWORD;
+    if (storedPass === pass) {
+      localStorage.setItem('activeUserId', id);
+      if (member.isEditor) applyEditorUI(id);
+      else applyMemberUI(id);
       closeModals();
-      setStatus(`Logged in as Editor ${id}`);
+      setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${id}`);
     } else {
       alert("Incorrect Password!");
     }
-  });
+  }).catch(err => alert("Login error: " + err.message));
 });
 
+// ------------------- PASSWORD RECOVERY -------------------
 document.getElementById('btnOpenReset').addEventListener('click', () => {
   closeModals();
   document.getElementById('modalReset').classList.add('active');
@@ -325,18 +381,14 @@ document.getElementById('btnOpenReset').addEventListener('click', () => {
 
 document.getElementById('btnVerifyReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  if (id !== 'E-001' && id !== 'E-002') {
-    document.getElementById('resetStatusMsg').innerText = "Error: Editor ID must be E-001 or E-002";
-    return;
-  }
-
+  if (!id) return alert("Please enter a Member ID.");
   db.ref('members/' + id).once('value').then(snap => {
     if (!snap.exists()) {
-      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist in database yet.`;
+      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
       document.getElementById('resetFields').style.display = 'none';
       return;
     }
-    document.getElementById('resetStatusMsg').innerText = `Editor ID ${id} verified. Enter Master PIN below.`;
+    document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
     document.getElementById('resetFields').style.display = 'block';
   });
 });
@@ -346,24 +398,22 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const inputPin = document.getElementById('resetMasterPin').value.trim();
   const p1 = document.getElementById('resetNewPass').value;
   const p2 = document.getElementById('resetVerPass').value;
-
-  if (!id) return alert("Please enter an Editor ID.");
-  if (!inputPin) return alert("Admin Master PIN is required.");
-  if (!p1 || p1 !== p2) return alert("New passwords do not match.");
+  if (!id || !inputPin) return alert("Please fill all fields.");
+  if (p1 !== p2) return alert("New passwords do not match.");
 
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
-      if (!actualPin) throw new Error("masterPin is missing in database under 'system/masterPin'.");
-      if (String(actualPin) !== inputPin) throw new Error("Access Denied: Incorrect Master PIN!");
+      if (!actualPin) throw new Error("masterPin missing in database.");
+      if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
       return db.ref('members/' + id).once('value');
     })
     .then(memberSnap => {
-      if (!memberSnap.exists()) throw new Error("Editor ID '" + id + "' was not found.");
+      if (!memberSnap.exists()) throw new Error("Member ID not found.");
       return db.ref('members/' + id + '/password').set(p1);
     })
     .then(() => {
-      alert(`Password for Editor ${id} updated successfully!`);
+      alert(`Password for ${id} updated successfully!`);
       document.getElementById('resetIdInput').value = '';
       document.getElementById('resetMasterPin').value = '';
       document.getElementById('resetNewPass').value = '';
@@ -375,44 +425,40 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
     .catch(err => alert(err.message));
 });
 
-document.getElementById('btnLoadWeekly').addEventListener('click', () => {
-  const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
-  const nameTag = document.getElementById('weeklyMemberName');
-
-  if (!id) {
-    nameTag.innerText = '';
-    return alert("Please enter a Member ID.");
-  }
-
+// ------------------- WEEKLY TAB -------------------
+function loadWeeklyForMember(id) {
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    nameTag.innerText = '';
-    return alert(`Member ID ${id} not found.`);
-  }
-
-  nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
-
+  if (!m) return alert(`Member ID ${id} not found.`);
+  document.getElementById('weeklyMemberId').value = id;
+  document.getElementById('weeklyMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const payments = getPaymentsArray(m.weeklyPayments);
   for (let i = 0; i < 50; i++) {
     document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
   }
   setStatus(`Weekly grid loaded for ${id} (${m.name})`);
+}
+
+document.getElementById('btnLoadWeekly').addEventListener('click', () => {
+  if (activeUserRole === "member") {
+    loadWeeklyForMember(activeUserId);
+    return;
+  }
+  const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
+  if (!id) return alert("Please enter a Member ID.");
+  loadWeeklyForMember(id);
 });
 
 document.getElementById('btnSavePayments').addEventListener('click', () => {
   if (!isEditor) return alert("Editor permission required.");
   const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
   if (!id) return alert("Enter Member ID first.");
-
-  // Fix #2: Check if member exists
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found. Cannot save payments.`);
+  if (!m) return alert(`Member ID ${id} not found.`);
 
   const payments = [];
   for (let i = 0; i < 50; i++) {
     payments.push(document.getElementById(`wk_${i}`).value);
   }
-
   db.ref(`members/${id}/weeklyPayments`).set(payments)
     .then(() => {
       alert("Weekly payments saved!");
@@ -421,31 +467,29 @@ document.getElementById('btnSavePayments').addEventListener('click', () => {
     .catch(err => alert("Save failed: " + err.message));
 });
 
-document.getElementById('btnLoadLoans').addEventListener('click', () => {
-  const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-  const nameTag = document.getElementById('loansMemberName');
-
-  if (!id) {
-    nameTag.innerText = '';
-    return alert("Please enter a Member ID.");
-  }
-
+// ------------------- LOANS TAB -------------------
+function loadLoansForMember(id) {
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    nameTag.innerText = '';
-    return alert(`Member ID ${id} not found.`);
-  }
-
-  nameTag.innerText = `Member: ${m.name || 'Unnamed'}`;
-
+  if (!m) return alert(`Member ID ${id} not found.`);
+  document.getElementById('loansMemberId').value = id;
+  document.getElementById('loansMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const lAmt = parseFloat(m.loanAmount) || 0;
   const lPaid = parseFloat(m.loanPaid) || 0;
   const lBal = Math.max(0, lAmt - lPaid);
-
   document.getElementById('loanTotalVal').innerText = `₦${lAmt.toLocaleString()}`;
   document.getElementById('loanPaidVal').innerText = `₦${lPaid.toLocaleString()}`;
   document.getElementById('loanBalVal').innerText = `₦${lBal.toLocaleString()}`;
   setStatus(`Loan details loaded for ${id} (${m.name})`);
+}
+
+document.getElementById('btnLoadLoans').addEventListener('click', () => {
+  if (activeUserRole === "member") {
+    loadLoansForMember(activeUserId);
+    return;
+  }
+  const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
+  if (!id) return alert("Please enter a Member ID.");
+  loadLoansForMember(id);
 });
 
 document.getElementById('btnAddLoan').addEventListener('click', () => {
@@ -453,13 +497,9 @@ document.getElementById('btnAddLoan').addEventListener('click', () => {
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   const amt = parseFloat(document.getElementById('newLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and loan amount.");
-
-  // Fix #2: Check if member exists
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found. Cannot add loan.`);
-
+  if (!m) return alert(`Member ID ${id} not found.`);
   const current = parseFloat(m.loanAmount) || 0;
-
   db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
     alert("Loan added!");
     document.getElementById('newLoanInput').value = '';
@@ -472,13 +512,9 @@ document.getElementById('btnPayLoan').addEventListener('click', () => {
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   const amt = parseFloat(document.getElementById('payLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and payment amount.");
-
-  // Fix #2: Check if member exists
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found. Cannot record repayment.`);
-
+  if (!m) return alert(`Member ID ${id} not found.`);
   const current = parseFloat(m.loanPaid) || 0;
-
   db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
     alert("Repayment recorded!");
     document.getElementById('payLoanInput').value = '';
@@ -486,6 +522,7 @@ document.getElementById('btnPayLoan').addEventListener('click', () => {
   });
 });
 
+// ------------------- MEMBERS LIST (viewer & editor only) -------------------
 document.getElementById('btnSearchMember').addEventListener('click', () => {
   const query = document.getElementById('searchMemberId').value.trim();
   renderMembers(query);
@@ -521,29 +558,26 @@ document.getElementById('btnGeneralReset').addEventListener('click', () => {
 document.getElementById('btnVerifySecurityPin').addEventListener('click', () => {
   const inputPin = document.getElementById('securityPinInput').value.trim();
   if (!inputPin) return alert("Please enter Admin Security PIN.");
-
   db.ref('system/masterPin').once('value').then(snap => {
     const actualPin = snap.val();
-    if (!actualPin) throw new Error("masterPin missing in database under 'system/masterPin'.");
+    if (!actualPin) throw new Error("masterPin missing in database.");
     if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-
     closeModals();
 
     if (pendingActionType === 'DELETE') {
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
       const name = m ? m.name : pendingTargetId;
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM DELETION";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to delete member ${name} (${pendingTargetId})? This action cannot be undone.`;
+      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to delete member ${name} (${pendingTargetId})?`;
     } else if (pendingActionType === 'RESET_SINGLE') {
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
       const name = m ? m.name : pendingTargetId;
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM MEMBER RESET";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to reset all financial records (weekly payments & loans) for member ${name} (${pendingTargetId})?`;
+      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to reset financial records for ${name} (${pendingTargetId})?`;
     } else if (pendingActionType === 'RESET_ALL') {
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM RESET ALL MEMBERS";
-      document.getElementById('actionConfirmMsg').innerText = "DANGER: Are you sure you want to reset ALL financial records (weekly payments & loans) for ALL members in the system? This action cannot be undone!";
+      document.getElementById('actionConfirmMsg').innerText = "DANGER: This will reset all financial records for ALL members. Continue?";
     }
-
     document.getElementById('modalActionConfirm').classList.add('active');
   }).catch(err => alert(err.message));
 });
@@ -551,28 +585,28 @@ document.getElementById('btnVerifySecurityPin').addEventListener('click', () => 
 document.getElementById('btnExecuteAction').addEventListener('click', () => {
   if (pendingActionType === 'DELETE') {
     if (!pendingTargetId) return;
-    db.ref('members/' + pendingTargetId).remove().then(() => {
-      alert(`Member ${pendingTargetId} deleted successfully.`);
-      setStatus(`Member ${pendingTargetId} deleted.`);
-      closeModals();
-      resetPendingAction();
-    }).catch(err => alert("Delete failed: " + err.message));
-
+    db.ref('members/' + pendingTargetId).remove()
+      .then(() => {
+        alert(`Member ${pendingTargetId} deleted.`);
+        setStatus(`Member ${pendingTargetId} deleted.`);
+        closeModals();
+        resetPendingAction();
+      })
+      .catch(err => alert("Delete failed: " + err.message));
   } else if (pendingActionType === 'RESET_SINGLE') {
     if (!pendingTargetId) return;
-    
     const updates = {};
     updates[`members/${pendingTargetId}/weeklyPayments`] = null;
     updates[`members/${pendingTargetId}/loanAmount`] = 0;
     updates[`members/${pendingTargetId}/loanPaid`] = 0;
-
-    db.ref().update(updates).then(() => {
-      alert(`Financial records for member ${pendingTargetId} reset successfully.`);
-      setStatus(`Financial records for ${pendingTargetId} reset.`);
-      closeModals();
-      resetPendingAction();
-    }).catch(err => alert("Reset failed: " + err.message));
-
+    db.ref().update(updates)
+      .then(() => {
+        alert(`Financial records for ${pendingTargetId} reset.`);
+        setStatus(`Financial records for ${pendingTargetId} reset.`);
+        closeModals();
+        resetPendingAction();
+      })
+      .catch(err => alert("Reset failed: " + err.message));
   } else if (pendingActionType === 'RESET_ALL') {
     const updates = {};
     members.forEach(m => {
@@ -582,13 +616,14 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
         updates[`${m.id}/loanPaid`] = 0;
       }
     });
-
-    db.ref('members').update(updates).then(() => {
-      alert("All financial records for all members have been reset.");
-      setStatus("All members' financial records reset.");
-      closeModals();
-      resetPendingAction();
-    }).catch(err => alert("Global reset failed: " + err.message));
+    db.ref('members').update(updates)
+      .then(() => {
+        alert("All financial records reset.");
+        setStatus("All members' financial records reset.");
+        closeModals();
+        resetPendingAction();
+      })
+      .catch(err => alert("Global reset failed: " + err.message));
   }
 });
 
@@ -597,6 +632,7 @@ function resetPendingAction() {
   pendingTargetId = null;
 }
 
+// ------------------- RENDER MEMBERS & SUMMARY -------------------
 function renderMembers(filterQuery = '') {
   const container = document.getElementById('membersListContainer');
   if (!container) return;
@@ -625,7 +661,6 @@ function renderMembers(filterQuery = '') {
     const lPaid = parseFloat(m.loanPaid) || 0;
     const lBal = Math.max(0, lAmt - lPaid);
 
-    // Inline onclick remains; IDs are constrained to M-### and E-###, so safe.
     html += `
       <div class="member-card">
         <div class="member-info">
