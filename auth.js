@@ -1,4 +1,4 @@
-// Initialize Firebase
+// Initialize Firebase safely
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
   authDomain: "maqali-app-83b95.firebaseapp.com",
@@ -15,67 +15,29 @@ if (!firebase.apps.length) {
 }
 
 const auth = firebase.auth();
-const db = firebase.database();
 
-// Universal Role Guard & State Manager
-auth.onAuthStateChanged((user) => {
-  const isLoginPage = window.location.pathname.endsWith("login.html");
+// Run immediately when DOM is fully loaded
+document.addEventListener("DOMContentLoaded", () => {
+  auth.onAuthStateChanged((user) => {
+    // Find status element (handles both class and id variations)
+    const statusBox = document.getElementById("statusMessage") || document.querySelector(".status-bar") || document.querySelector("div[class*='status']");
+    const roleBadge = document.getElementById("roleBadge") || document.querySelector("div[class*='Role']");
 
-  if (user) {
-    if (isLoginPage) {
-      window.location.href = "index.html";
+    if (user) {
+      const email = user.email || "";
+      const isEditor = email.startsWith("e-");
+
+      if (statusBox) statusBox.innerText = "STATUS: Connected (" + email + ")";
+      if (roleBadge) roleBadge.innerText = isEditor ? "Role: Editor (Full Access)" : "Role: Member (View-Only)";
+
+      // Unlock fields if Editor
+      document.querySelectorAll("input, select").forEach(el => el.disabled = !isEditor);
     } else {
-      applyUserPermissions(user);
+      if (statusBox) statusBox.innerText = "STATUS: Read-Only Mode (Not Logged In)";
+      if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
+
+      // Lock all inputs in Read-Only mode
+      document.querySelectorAll("input, select").forEach(el => el.disabled = true);
     }
-  } else {
-    // Unauthenticated: Stay on index.html in Read-Only mode
-    applyReadOnlyMode();
-  }
+  });
 });
-
-// Lock Interface for Unauthenticated Visitors
-function applyReadOnlyMode() {
-  const roleBadge = document.getElementById("roleBadge");
-  if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
-
-  // Disable forms and inputs
-  document.querySelectorAll("input, select").forEach(el => el.disabled = true);
-  document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "none");
-}
-
-// Grant Permissions Based on Role
-function applyUserPermissions(user) {
-  const email = user.email || "";
-  const isEditor = email.startsWith("e-");
-
-  const roleBadge = document.getElementById("roleBadge");
-  if (roleBadge) {
-    roleBadge.innerText = isEditor ? "Role: Editor (Full Access)" : "Role: Member (View-Only)";
-  }
-
-  if (isEditor) {
-    document.querySelectorAll("input, select").forEach(el => el.disabled = false);
-    document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "inline-block");
-  } else {
-    document.querySelectorAll("input, select").forEach(el => el.disabled = true);
-    document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "none");
-  }
-}
-
-// Admin PIN Password Reset Function
-async function resetPasswordWithPin(memberId, newPassword, enteredPin) {
-  try {
-    const pinSnapshot = await db.ref("settings/adminResetPin").once("value");
-    const masterPin = pinSnapshot.val() || "1234"; // Default fallback PIN
-
-    if (enteredPin !== masterPin) {
-      alert("Invalid Admin Reset PIN. Please check with your Admin.");
-      return;
-    }
-
-    // Call Cloud/Backend or Secondary process to update password
-    alert("PIN Verified! Contact Editor to finalize credential sync or use secondary updater.");
-  } catch (err) {
-    alert("Reset Error: " + err.message);
-  }
-}
