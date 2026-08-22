@@ -1,4 +1,4 @@
-// APP.JS – Full version with Members tab visible for normal members
+// APP.JS – Full version with logout confirmation and all previous features
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -442,9 +442,12 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
   if (activeUserId) {
-    localStorage.removeItem('activeUserId');
-    setViewerMode();
-    setStatus("Logged out. Switched to Viewer Mode.");
+    // Show logout confirmation modal
+    pendingActionType = 'LOGOUT';
+    document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
+    document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
+    enableModalElements('modalActionConfirm');
+    document.getElementById('modalActionConfirm').classList.add('active');
   } else {
     enableModalElements('modalLogin');
     document.getElementById('modalLogin').classList.add('active');
@@ -724,6 +727,12 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
         resetPendingAction();
       })
       .catch(err => alert("Global reset failed: " + err.message));
+  } else if (pendingActionType === 'LOGOUT') {
+    localStorage.removeItem('activeUserId');
+    setViewerMode();
+    closeModals();
+    resetPendingAction();
+    setStatus("Logged out. Switched to Viewer Mode.");
   }
 });
 
