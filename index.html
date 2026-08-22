@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAQALI FAMILY MEETING</title>
+  <title>MAQALI FAMILY</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
     body { background-color: #000040; color: #fff; padding: 10px; padding-bottom: 70px; }
@@ -47,9 +47,28 @@
     .tab-item svg { width: 20px; height: 20px; fill: currentColor; }
     .tab-item.active { color: #007AFF; border-top: 2px solid #007AFF; background: #000030; }
     
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
+    /* Sliding tab container */
+    .tab-container {
+      position: relative;
+      overflow: hidden;
+      height: calc(100vh - 145px); /* topbar + status + bottom tab bar */
+      margin-bottom: 55px;
+    }
+    .tab-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      padding: 10px;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+    }
+    .tab-content.active {
+      transform: translateX(0);
+    }
+    
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 15px; }
     .modal-overlay.active { display: flex !important; }
     .modal-box { background: #000028; border: 1px solid #007AFF; border-radius: 8px; width: 100%; max-width: 340px; padding: 16px; }
@@ -80,140 +99,148 @@
 
   <div class="top-bar">
     <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
-    <button class="login-btn" id="loginBtn">Editor Login</button>
+    <button class="login-btn" id="loginBtn">Member Login</button>
   </div>
 
   <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
 
-  <!-- TAB 1: PROFILE -->
-  <div id="tab-Profile" class="tab-content active">
-    <div class="card">
-      <div class="field-row">
-        <span class="field-label">Member ID</span>
-        <div class="shared-input-wrapper">
-          <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
-          <button class="load-btn-part" id="btnLoadProfile">Load</button>
+  <!-- Wrap all tab contents inside a sliding container -->
+  <div class="tab-container" id="tabContainer">
+    <!-- TAB 1: PROFILE -->
+    <div id="tab-Profile" class="tab-content active">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
+            <button class="load-btn-part" id="btnLoadProfile">Load</button>
+          </div>
+        </div>
+        
+        <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
+        <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
+        <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
+        <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
+        <div class="field-row">
+          <span class="field-label">Role Type</span>
+          <select id="roleType" class="field-input">
+            <option value="Member">Normal Member (M-)</option>
+            <option value="Editor">Editor (E-)</option>
+          </select>
+        </div>
+        <!-- New password field for member creation/editing -->
+        <div class="field-row">
+          <span class="field-label">Password</span>
+          <input type="password" id="password" class="field-input" placeholder="Leave blank for default 1234">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn" id="btnNewID">New ID</button>
+          <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
+          <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Amount:</span><span id="profLoanAmount" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Paid:</span><span id="profLoanPaid" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Balance:</span><span id="profLoanBalance" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
+          <div class="summary-row"><span>Net Balance:</span><span id="profNetBalance" class="summary-val" style="color: #51cf66;">₦0</span></div>
         </div>
       </div>
-      
-      <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
-      <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
-      <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
-      <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
-      <div class="field-row">
-        <span class="field-label">Role Type</span>
-        <select id="roleType" class="field-input">
-          <option value="Member">Normal Member (M-)</option>
-          <option value="Editor">Editor (E-)</option>
-        </select>
-      </div>
+    </div>
 
-      <div class="btn-row">
-        <button class="action-btn" id="btnNewID">New ID</button>
-        <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
-      </div>
+    <!-- TAB 2: WEEKLY -->
+    <div id="tab-Weekly" class="tab-content">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="weeklyMemberId" class="id-input-part" placeholder="M-001">
+            <button class="load-btn-part" id="btnLoadWeekly">Load</button>
+          </div>
+        </div>
+        <div id="weeklyMemberName" class="name-display-tag"></div>
 
-      <div class="summary-box">
-        <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
-        <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
-        <div class="summary-row"><span>Loan Amount:</span><span id="profLoanAmount" class="summary-val">₦0</span></div>
-        <div class="summary-row"><span>Loan Paid:</span><span id="profLoanPaid" class="summary-val">₦0</span></div>
-        <div class="summary-row"><span>Loan Balance:</span><span id="profLoanBalance" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
-        <div class="summary-row"><span>Net Balance:</span><span id="profNetBalance" class="summary-val" style="color: #51cf66;">₦0</span></div>
+        <div class="grid-container" id="grid50"></div>
+        <button class="action-btn save-btn" id="btnSavePayments" style="width: 100%; margin-top: 12px;">Save Payments</button>
+      </div>
+    </div>
+
+    <!-- TAB 3: LOANS -->
+    <div id="tab-Loans" class="tab-content">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="loansMemberId" class="id-input-part" placeholder="M-001">
+            <button class="load-btn-part" id="btnLoadLoans">Load</button>
+          </div>
+        </div>
+        <div id="loansMemberName" class="name-display-tag"></div>
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Loan Total:</span><span id="loanTotalVal" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Total Paid:</span><span id="loanPaidVal" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Balance:</span><span id="loanBalVal" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
+        </div>
+
+        <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 11px; color: #aaa; font-weight: bold;">Issue Loan</span>
+          <div class="field-row" style="margin-top: 6px;">
+            <input type="number" id="newLoanInput" class="field-input" placeholder="Amount (₦)">
+            <button class="action-btn" id="btnAddLoan" style="background: #dc3545; width: 90px; margin-left: 8px;">Add Loan</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 11px; color: #aaa; font-weight: bold;">Record Repayment</span>
+          <div class="field-row" style="margin-top: 6px;">
+            <input type="number" id="payLoanInput" class="field-input" placeholder="Amount (₦)">
+            <button class="action-btn" id="btnPayLoan" style="background: #007AFF; width: 90px; margin-left: 8px;">Pay Loan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: MEMBERS LIST (visible only to viewers & editors) -->
+    <div id="tab-Members" class="tab-content">
+      <div class="card">
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+          <div class="shared-input-wrapper" style="flex: 1;">
+            <input type="text" id="searchMemberId" class="id-input-part" placeholder="Member ID (e.g. M-001)">
+            <button class="load-btn-part" id="btnSearchMember">Load</button>
+          </div>
+          <button id="btnGeneralReset" class="action-btn" style="background: #dc3545; width: auto; padding: 0 10px; display: flex; align-items: center; gap: 4px; height: 34px;" title="Reset All Members Financial Records">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span style="font-size: 10px;">Reset All</span>
+          </button>
+        </div>
+        <div id="membersListContainer"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: SUMMARY -->
+    <div id="tab-Summary" class="tab-content">
+      <div class="card">
+        <div class="gen-box"><div class="gen-label">TOTAL SAVED</div><div id="sumTotalSaved" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOANS ISSUED</div><div id="sumTotalLoans" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOANS REPAID</div><div id="sumTotalRepaid" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOAN BALANCE</div><div id="sumTotalLoanBal" class="gen-val" style="color: #ff6b6b;">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">GRAND NET BALANCE</div><div id="sumGrandNet" class="gen-val" style="color: #51cf66;">₦0</div></div>
+        <div class="gen-box" style="background: #11113a;"><div class="gen-label">TOTAL MEMBERS</div><div id="sumTotalMembers" class="gen-val">0</div></div>
       </div>
     </div>
   </div>
 
-  <!-- TAB 2: WEEKLY -->
-  <div id="tab-Weekly" class="tab-content">
-    <div class="card">
-      <div class="field-row">
-        <span class="field-label">Member ID</span>
-        <div class="shared-input-wrapper">
-          <input type="text" id="weeklyMemberId" class="id-input-part" placeholder="M-001">
-          <button class="load-btn-part" id="btnLoadWeekly">Load</button>
-        </div>
-      </div>
-      <div id="weeklyMemberName" class="name-display-tag"></div>
-
-      <div class="grid-container" id="grid50"></div>
-      <button class="action-btn save-btn" id="btnSavePayments" style="width: 100%; margin-top: 12px;">Save Payments</button>
-    </div>
-  </div>
-
-  <!-- TAB 3: LOANS -->
-  <div id="tab-Loans" class="tab-content">
-    <div class="card">
-      <div class="field-row">
-        <span class="field-label">Member ID</span>
-        <div class="shared-input-wrapper">
-          <input type="text" id="loansMemberId" class="id-input-part" placeholder="M-001">
-          <button class="load-btn-part" id="btnLoadLoans">Load</button>
-        </div>
-      </div>
-      <div id="loansMemberName" class="name-display-tag"></div>
-
-      <div class="summary-box">
-        <div class="summary-row"><span>Loan Total:</span><span id="loanTotalVal" class="summary-val">₦0</span></div>
-        <div class="summary-row"><span>Total Paid:</span><span id="loanPaidVal" class="summary-val">₦0</span></div>
-        <div class="summary-row"><span>Balance:</span><span id="loanBalVal" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
-      </div>
-
-      <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
-        <span style="font-size: 11px; color: #aaa; font-weight: bold;">Issue Loan</span>
-        <div class="field-row" style="margin-top: 6px;">
-          <input type="number" id="newLoanInput" class="field-input" placeholder="Amount (₦)">
-          <button class="action-btn" id="btnAddLoan" style="background: #dc3545; width: 90px; margin-left: 8px;">Add Loan</button>
-        </div>
-      </div>
-
-      <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
-        <span style="font-size: 11px; color: #aaa; font-weight: bold;">Record Repayment</span>
-        <div class="field-row" style="margin-top: 6px;">
-          <input type="number" id="payLoanInput" class="field-input" placeholder="Amount (₦)">
-          <button class="action-btn" id="btnPayLoan" style="background: #007AFF; width: 90px; margin-left: 8px;">Pay Loan</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB 4: MEMBERS LIST -->
-  <div id="tab-Members" class="tab-content">
-    <div class="card">
-      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
-        <div class="shared-input-wrapper" style="flex: 1;">
-          <input type="text" id="searchMemberId" class="id-input-part" placeholder="Member ID (e.g. M-001)">
-          <button class="load-btn-part" id="btnSearchMember">Load</button>
-        </div>
-        <button id="btnGeneralReset" class="action-btn" style="background: #dc3545; width: auto; padding: 0 10px; display: flex; align-items: center; gap: 4px; height: 34px;" title="Reset All Members Financial Records">
-          <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-          <span style="font-size: 10px;">Reset All</span>
-        </button>
-      </div>
-      <div id="membersListContainer"></div>
-    </div>
-  </div>
-
-  <!-- TAB 5: SUMMARY -->
-  <div id="tab-Summary" class="tab-content">
-    <div class="card">
-      <div class="gen-box"><div class="gen-label">TOTAL SAVED</div><div id="sumTotalSaved" class="gen-val">₦0</div></div>
-      <div class="gen-box"><div class="gen-label">TOTAL LOANS ISSUED</div><div id="sumTotalLoans" class="gen-val">₦0</div></div>
-      <div class="gen-box"><div class="gen-label">TOTAL LOANS REPAID</div><div id="sumTotalRepaid" class="gen-val">₦0</div></div>
-      <div class="gen-box"><div class="gen-label">TOTAL LOAN BALANCE</div><div id="sumTotalLoanBal" class="gen-val" style="color: #ff6b6b;">₦0</div></div>
-      <div class="gen-box"><div class="gen-label">GRAND NET BALANCE</div><div id="sumGrandNet" class="gen-val" style="color: #51cf66;">₦0</div></div>
-      <div class="gen-box" style="background: #11113a;"><div class="gen-label">TOTAL MEMBERS</div><div id="sumTotalMembers" class="gen-val">0</div></div>
-    </div>
-  </div>
-
-  <!-- MODAL: EDITOR LOGIN -->
+  <!-- MODAL: MEMBER LOGIN -->
   <div class="modal-overlay" id="modalLogin">
     <div class="modal-box">
-      <div class="modal-title">EDITOR LOGIN</div>
-      <div class="modal-subtitle">Use your Editor ID (E-001 or E-002)</div>
+      <div class="modal-title">MEMBER LOGIN</div>
+      <div class="modal-subtitle">Enter your Member ID (M-xxx or E-xxx)</div>
       <div class="field-row">
-        <span class="field-label">Editor ID</span>
-        <input type="text" id="loginIdInput" class="field-input" placeholder="e.g. E-001">
+        <span class="field-label">Member ID</span>
+        <input type="text" id="loginIdInput" class="field-input" placeholder="e.g. M-001">
       </div>
       <div class="field-row">
         <span class="field-label">Password</span>
@@ -229,12 +256,12 @@
   <div class="modal-overlay" id="modalReset">
     <div class="modal-box">
       <div class="modal-title">PASSWORD RECOVERY</div>
-      <div class="modal-subtitle">Type Editor ID (E-001 or E-002) & click Load</div>
+      <div class="modal-subtitle">Enter your Member ID & click Load</div>
       
       <div class="field-row">
-        <span class="field-label">Editor ID</span>
+        <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
-          <input type="text" id="resetIdInput" class="id-input-part" placeholder="E-001">
+          <input type="text" id="resetIdInput" class="id-input-part" placeholder="M-001 or E-001">
           <button class="load-btn-part" id="btnVerifyReset">Load</button>
         </div>
       </div>
