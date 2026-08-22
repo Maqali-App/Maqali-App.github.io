@@ -16,15 +16,14 @@ if (!firebase.apps.length) {
 
 const auth = firebase.auth();
 
-// Run Auth Listener IMMEDIATELY (Do not wait for DOMContentLoaded wrapper)
+// Run Auth Listener IMMEDIATELY
 auth.onAuthStateChanged((user) => {
   const isLoginPage = window.location.pathname.endsWith("login.html");
   if (isLoginPage) return;
 
-  // Execute UI updates once DOM elements exist
   const updateUI = () => {
-    // Search for any element containing status or role text
-    const statusBox = document.getElementById("statusMessage") || document.getElementById("statusText") || document.querySelector(".status-bar");
+    // Specifically targets statusBanner
+    const statusBox = document.getElementById("statusBanner") || document.getElementById("statusMessage") || document.querySelector(".status-bar");
     const roleBadge = document.getElementById("roleBadge") || document.querySelector(".role-badge");
 
     if (user) {
