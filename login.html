@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - MAQALI FAMILY MEETING</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Firebase Web SDK Imports -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+</head>
+<body>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-title">MAQALI FAMILY MEETING</div>
+      <div class="login-subtitle">Sign in using Member ID (e.g. M-001) or Editor ID (E-001)</div>
+
+      <div class="field-row">
+        <span class="field-label">Account ID</span>
+        <input type="text" id="authLoginId" class="field-input" placeholder="e.g. M-001 or E-001">
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">Password</span>
+        <input type="password" id="authLoginPass" class="field-input" placeholder="Password">
+      </div>
+
+      <button class="action-btn save-btn" id="btnSubmitAuthLogin" style="width: 100%; margin-top: 10px;">Sign In</button>
+    </div>
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    // Handle Sign In Action
+    document.getElementById('btnSubmitAuthLogin').addEventListener('click', () => {
+      const rawId = document.getElementById('authLoginId').value.trim().toUpperCase();
+      const pass = document.getElementById('authLoginPass').value;
+
+      if (!rawId || !pass) return alert("Please enter both Account ID and Password.");
+
+      const targetEmail = rawId.toLowerCase() + "@maqali.app";
+
+      auth.signInWithEmailAndPassword(targetEmail, pass)
+        .then(() => {
+          window.location.href = "index.html";
+        })
+        .catch((error) => {
+          alert("Authentication failed: " + error.message);
+        });
+    });
+
+    // Auto-redirect to index.html if user is already authenticated
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        window.location.href = "index.html";
+      }
+    });
+  </script>
+</body>
+</html>
