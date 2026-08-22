@@ -31,32 +31,26 @@
     </div>
   </div>
 
-  <script src="auth.js"></script>
-  <script>
-    // Handle Sign In Action
-    document.getElementById('btnSubmitAuthLogin').addEventListener('click', () => {
-      const rawId = document.getElementById('authLoginId').value.trim().toUpperCase();
-      const pass = document.getElementById('authLoginPass').value;
+<script src="auth.js"></script>
+<script>
+  // Handle Sign In Action
+  document.getElementById('btnSubmitAuthLogin').addEventListener('click', () => {
+    const rawId = document.getElementById('authLoginId').value.trim().toUpperCase();
+    const pass = document.getElementById('authLoginPass').value;
 
-      if (!rawId || !pass) return alert("Please enter both Account ID and Password.");
+    if (!rawId || !pass) return alert("Please enter both Account ID and Password.");
 
-      const targetEmail = rawId.toLowerCase() + "@maqali.app";
+    const targetEmail = rawId.toLowerCase() + "@maqali.app";
 
-      auth.signInWithEmailAndPassword(targetEmail, pass)
-        .then(() => {
-          window.location.href = "index.html";
-        })
-        .catch((error) => {
-          alert("Authentication failed: " + error.message);
-        });
-    });
-
-    // Auto-redirect to index.html if user is already authenticated
-    //auth.onAuthStateChanged((user) => {
-      //if (user) {
-      //  window.location.href = "index.html";
-      }
-    });
+    firebase.auth().signInWithEmailAndPassword(targetEmail, pass)
+      .then(() => {
+        window.location.href = "index.html";
+      })
+      .catch((error) => {
+        alert("Authentication failed: " + error.message);
+      });
+  });
+</script>
   </script>
 </body>
 </html>
