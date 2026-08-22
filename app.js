@@ -1,4 +1,4 @@
-// APP.JS – Final version with explicit viewer mode and universal login
+// APP.JS – Full version with privacy restrictions
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -47,26 +47,26 @@ function setStatus(msg) {
   document.getElementById('statusBanner').innerText = "STATUS: " + msg;
 }
 
+function maskID(id) {
+  if (!id) return 'N/A';
+  const prefix = id.charAt(0);
+  return prefix + '-***';
+}
+
 // ------------------- UI STATE MANAGEMENT -------------------
 function setViewerMode() {
   isEditor = false;
   activeUserId = "";
   activeUserRole = "viewer";
-  document.getElementById('roleBadge').innerText = "Role: Viewer (Read-Only)";
+  document.getElementById('roleBadge').innerText = "Role: Viewer (Not Logged In)";
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Member Login";
+  
   updateTabsVisibility();
-
-  // Unlock ID fields for manual entry
-  ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
-    const el = document.getElementById(fid);
-    el.readOnly = false;
-  });
-
-  // Clear any previously locked UI
-  document.getElementById('memberId').readOnly = false;
-  isEditingExistingMember = false;
-  setStatus("Viewer Mode – you can browse all data but cannot edit.");
+  lockAllTabs();
+  showLoginPrompt();
+  
+  setStatus("Please log in to access your data.");
 }
 
 function applyEditorUI(editorId) {
@@ -76,7 +76,10 @@ function applyEditorUI(editorId) {
   document.getElementById('roleBadge').innerText = `Role: Editor (${editorId})`;
   document.getElementById('roleBadge').style.background = "#28a745";
   document.getElementById('loginBtn').innerText = "Logout";
+  
   updateTabsVisibility();
+  unlockAllTabs();
+  hideLoginPrompt();
 }
 
 function applyMemberUI(memberId) {
@@ -86,7 +89,10 @@ function applyMemberUI(memberId) {
   document.getElementById('roleBadge').innerText = `Role: Member (${memberId})`;
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Logout";
+  
   updateTabsVisibility();
+  unlockAllTabs();
+  hideLoginPrompt();
 
   // Lock all ID inputs to this member's ID
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
@@ -99,18 +105,100 @@ function applyMemberUI(memberId) {
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
+  renderMembers();
 }
 
 function updateTabsVisibility() {
-  const membersTab = document.querySelector('.tab-item[data-tab="Members"]');
-  if (!membersTab) return;
-
-  // Hide Members tab only for logged-in normal members
-  if (activeUserRole === "member") {
-    membersTab.style.display = "none";
+  const tabItems = document.querySelectorAll('.tab-item');
+  
+  if (activeUserRole === "viewer") {
+    // Not logged in: show only Profile tab
+    tabItems.forEach(tab => {
+      const tabName = tab.getAttribute('data-tab');
+      if (tabName === 'Profile') {
+        tab.style.display = "flex";
+      } else {
+        tab.style.display = "none";
+      }
+    });
+  } else if (activeUserRole === "member") {
+    // Logged in as normal member: show Profile, Weekly, Loans, Summary (hide Members)
+    tabItems.forEach(tab => {
+      const tabName = tab.getAttribute('data-tab');
+      if (tabName === 'Members') {
+        tab.style.display = "none";
+      } else {
+        tab.style.display = "flex";
+      }
+    });
   } else {
-    membersTab.style.display = "flex";
+    // Editor: show all tabs
+    tabItems.forEach(tab => {
+      tab.style.display = "flex";
+    });
   }
+}
+
+function lockAllTabs() {
+  document.querySelectorAll('input, select, button').forEach(el => {
+    if (el.id !== 'loginBtn' && !el.classList.contains('btn-close-modal')) {
+      el.disabled = true;
+    }
+  });
+}
+
+function unlockAllTabs() {
+  document.querySelectorAll('input, select, button').forEach(el => {
+    el.disabled = false;
+  });
+  
+  // But keep ID fields locked for normal members
+  if (activeUserRole === "member") {
+    ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
+      document.getElementById(fid).readOnly = true;
+      document.getElementById(fid).disabled = false; // allow Load button
+    });
+  }
+}
+
+function showLoginPrompt() {
+  const profileTab = document.getElementById('tab-Profile');
+  if (profileTab) {
+    let loginPrompt = document.getElementById('loginPrompt');
+    if (!loginPrompt) {
+      loginPrompt = document.createElement('div');
+      loginPrompt.id = 'loginPrompt';
+      loginPrompt.style.cssText = `
+        text-align: center;
+        padding: 20px;
+        background: #000018;
+        border: 1px solid #007AFF;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        color: #ffd700;
+        font-size: 14px;
+        font-weight: bold;
+      `;
+      loginPrompt.innerHTML = `
+        <div style="margin-bottom: 10px;">🔒 ACCESS RESTRICTED</div>
+        <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+          Please log in to view your data.<br>
+          Contact an editor if you don't have an account.
+        </div>
+        <button onclick="document.getElementById('loginBtn').click()" 
+                style="background: #007AFF; color: #fff; border: none; border-radius: 4px; 
+                       padding: 10px 20px; font-size: 12px; font-weight: bold; cursor: pointer;">
+          Login Now
+        </button>
+      `;
+      profileTab.insertBefore(loginPrompt, profileTab.firstChild);
+    }
+  }
+}
+
+function hideLoginPrompt() {
+  const loginPrompt = document.getElementById('loginPrompt');
+  if (loginPrompt) loginPrompt.remove();
 }
 
 function restoreSession() {
@@ -129,7 +217,6 @@ function restoreSession() {
       localStorage.removeItem('activeUserId');
     }
   }
-  // No valid session -> stay in viewer mode
   setViewerMode();
 }
 
@@ -186,7 +273,6 @@ db.ref('members').on('value', (snapshot) => {
   members = data ? Object.values(data) : [];
   renderMembers();
   renderSummary();
-  // Only restore session on first data load
   if (!window._sessionRestored) {
     restoreSession();
     window._sessionRestored = true;
@@ -198,6 +284,15 @@ db.ref('members').on('value', (snapshot) => {
 // ------------------- SLIDING TABS -------------------
 document.querySelectorAll('.tab-item').forEach(item => {
   item.addEventListener('click', function() {
+    if (activeUserRole === "viewer" && this.getAttribute('data-tab') !== 'Profile') {
+      alert("Please log in to access this section.");
+      return;
+    }
+    if (activeUserRole === "member" && this.getAttribute('data-tab') === 'Members') {
+      alert("Members list is only available to editors.");
+      return;
+    }
+    
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     this.classList.add('active');
@@ -251,7 +346,7 @@ function loadProfileForMember(id) {
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
-  document.getElementById('password').value = ''; // never show password
+  document.getElementById('password').value = '';
 
   const payments = getPaymentsArray(m.weeklyPayments);
   const wPaid = payments.filter(val => val !== "" && val !== null && !isNaN(val)).length;
@@ -343,7 +438,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
   if (activeUserId) {
-    // Logout
     localStorage.removeItem('activeUserId');
     setViewerMode();
     setStatus("Logged out. Switched to Viewer Mode.");
@@ -522,7 +616,7 @@ document.getElementById('btnPayLoan').addEventListener('click', () => {
   });
 });
 
-// ------------------- MEMBERS LIST (viewer & editor only) -------------------
+// ------------------- MEMBERS LIST (with privacy) -------------------
 document.getElementById('btnSearchMember').addEventListener('click', () => {
   const query = document.getElementById('searchMemberId').value.trim();
   renderMembers(query);
@@ -637,6 +731,14 @@ function renderMembers(filterQuery = '') {
   const container = document.getElementById('membersListContainer');
   if (!container) return;
 
+  // If not logged in, do not show members
+  if (activeUserRole === "viewer") {
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
+      Please log in to view members.
+    </div>`;
+    return;
+  }
+
   let listToRender = members;
   if (filterQuery) {
     const q = filterQuery.trim().toUpperCase();
@@ -655,36 +757,51 @@ function renderMembers(filterQuery = '') {
 
   let html = '';
   listToRender.forEach(m => {
-    const payments = getPaymentsArray(m.weeklyPayments);
-    const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-    const lAmt = parseFloat(m.loanAmount) || 0;
-    const lPaid = parseFloat(m.loanPaid) || 0;
-    const lBal = Math.max(0, lAmt - lPaid);
-
-    html += `
-      <div class="member-card">
-        <div class="member-info">
-          <div class="member-header">
-            <span>${m.name || 'Unnamed'} (${m.id || 'N/A'})</span>
-            <span style="color:${m.isEditor ? '#28a745' : '#888'}; font-size: 10px;">${m.isEditor ? 'Editor' : 'Member'}</span>
-          </div>
-          <div>Phone: ${m.phone || 'N/A'} | Ties: ${m.familyTies || 'N/A'}</div>
-          <div style="margin-top:4px;">
-            Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
-            Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
-          </div>
-        </div>
-        <div class="card-actions">
-          <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
-            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
-          <button class="icon-action-btn reset-btn" onclick="initiateResetMember('${m.id}')" title="Reset Member Financials">
-            <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-8z"/></svg>
-          </button>
-        </div>
-      </div>`;
+    html += createMemberCardHTML(m);
   });
   container.innerHTML = html;
+}
+
+function createMemberCardHTML(m) {
+  const payments = getPaymentsArray(m.weeklyPayments);
+  const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+  const lAmt = parseFloat(m.loanAmount) || 0;
+  const lPaid = parseFloat(m.loanPaid) || 0;
+  const lBal = Math.max(0, lAmt - lPaid);
+
+  // Privacy: editors see everything; normal members see own full details, others masked/hidden
+  const isOwnProfile = (activeUserId === m.id);
+  const canSeeFullDetails = isEditor || isOwnProfile;
+  
+  const displayId = canSeeFullDetails ? m.id : maskID(m.id);
+  const displayPhone = canSeeFullDetails ? (m.phone || 'N/A') : 'Hidden';
+
+  // Action buttons only for editors
+  const actionButtons = isEditor ? `
+    <div class="card-actions">
+      <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
+        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      </button>
+      <button class="icon-action-btn reset-btn" onclick="initiateResetMember('${m.id}')" title="Reset Member Financials">
+        <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-8z"/></svg>
+      </button>
+    </div>` : '';
+
+  return `
+    <div class="member-card">
+      <div class="member-info">
+        <div class="member-header">
+          <span>${m.name || 'Unnamed'} (${displayId})</span>
+          <span style="color:${m.isEditor ? '#28a745' : '#888'}; font-size: 10px;">${m.isEditor ? 'Editor' : 'Member'}</span>
+        </div>
+        <div>Phone: ${displayPhone} | Ties: ${m.familyTies || 'N/A'}</div>
+        <div style="margin-top:4px;">
+          Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
+          Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
+        </div>
+      </div>
+      ${actionButtons}
+    </div>`;
 }
 
 function renderSummary() {
