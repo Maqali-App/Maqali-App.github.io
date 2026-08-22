@@ -9,6 +9,7 @@
   <!-- Firebase Web SDK Imports -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -28,29 +29,59 @@
       </div>
 
       <button class="action-btn save-btn" id="btnSubmitAuthLogin" style="width: 100%; margin-top: 10px;">Sign In</button>
+
+      <!-- FORGOT PASSWORD LINK -->
+      <div style="text-align: center; margin-top: 15px;">
+        <a href="#" id="btnForgotPass" style="color: #60a5fa; font-size: 0.85rem; text-decoration: underline;">
+          Forgot Password? (Reset with Admin PIN)
+        </a>
+      </div>
     </div>
   </div>
 
-<script src="auth.js"></script>
-<script>
-  // Handle Sign In Action
-  document.getElementById('btnSubmitAuthLogin').addEventListener('click', () => {
-    const rawId = document.getElementById('authLoginId').value.trim().toUpperCase();
-    const pass = document.getElementById('authLoginPass').value;
+  <script src="auth.js"></script>
+  <script>
+    // Handle Sign In Action
+    document.getElementById('btnSubmitAuthLogin').addEventListener('click', () => {
+      const rawId = document.getElementById('authLoginId').value.trim().toUpperCase();
+      const pass = document.getElementById('authLoginPass').value;
 
-    if (!rawId || !pass) return alert("Please enter both Account ID and Password.");
+      if (!rawId || !pass) return alert("Please enter both Account ID and Password.");
 
-    const targetEmail = rawId.toLowerCase() + "@maqali.app";
+      const targetEmail = rawId.toLowerCase() + "@maqali.app";
 
-    firebase.auth().signInWithEmailAndPassword(targetEmail, pass)
-      .then(() => {
-        window.location.href = "index.html";
-      })
-      .catch((error) => {
-        alert("Authentication failed: " + error.message);
-      });
-  });
-</script>
+      firebase.auth().signInWithEmailAndPassword(targetEmail, pass)
+        .then(() => {
+          window.location.href = "index.html";
+        })
+        .catch((error) => {
+          alert("Authentication failed: " + error.message);
+        });
+    });
+
+    // Handle Forgot Password Action (Admin PIN)
+    document.getElementById('btnForgotPass').addEventListener('click', (e) => {
+      e.preventDefault();
+      const memberId = prompt("Enter your Account ID (e.g., M-001):");
+      if (!memberId) return;
+
+      const pin = prompt("Enter the Admin Reset PIN:");
+      if (!pin) return;
+
+      // Verify PIN against database
+      firebase.database().ref('settings/adminResetPin').once('value')
+        .then((snapshot) => {
+          const masterPin = snapshot.val() || "1234"; // Default fallback PIN
+          if (pin.trim() === masterPin.toString()) {
+            alert(`PIN Verified for ${memberId.toUpperCase()}!\n\nPlease contact the Editor to issue your new password.`);
+          } else {
+            alert("Invalid Admin Reset PIN. Access denied.");
+          }
+        })
+        .catch((err) => {
+          alert("Error verifying PIN: " + err.message);
+        });
+    });
   </script>
 </body>
 </html>
