@@ -1,4 +1,4 @@
-// APP.JS – Full version with logout confirmation and all previous features
+// APP.JS – Full version with swipe navigation, privacy, and logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -289,7 +289,7 @@ db.ref('members').on('value', (snapshot) => {
   setStatus("Database Error: " + error.message);
 });
 
-// ------------------- SLIDING TABS -------------------
+// ------------------- SLIDING TABS (Click) -------------------
 document.querySelectorAll('.tab-item').forEach(item => {
   item.addEventListener('click', function() {
     if (activeUserRole === "viewer" && this.getAttribute('data-tab') !== 'Profile') {
@@ -297,13 +297,73 @@ document.querySelectorAll('.tab-item').forEach(item => {
       return;
     }
     
-    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    this.classList.add('active');
-    const tabName = this.getAttribute('data-tab');
-    document.getElementById('tab-' + tabName).classList.add('active');
+    switchToTab(this);
   });
 });
+
+function switchToTab(tabItem) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  tabItem.classList.add('active');
+  const tabName = tabItem.getAttribute('data-tab');
+  document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+// ------------------- SWIPE NAVIGATION -------------------
+const tabContainer = document.getElementById('tabContainer');
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+tabContainer.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+tabContainer.addEventListener('touchend', (e) => {
+  touchEndX = e.changedTouches[0].screenX;
+  touchEndY = e.changedTouches[0].screenY;
+  handleSwipe();
+}, { passive: true });
+
+function handleSwipe() {
+  const deltaX = touchEndX - touchStartX;
+  const deltaY = touchEndY - touchStartY;
+
+  // Only consider horizontal swipe if it's significantly larger than vertical
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+    const visibleTabs = getVisibleTabs();
+    if (visibleTabs.length === 0) return;
+
+    const currentIndex = getCurrentTabIndex(visibleTabs);
+    if (currentIndex === -1) return;
+
+    let newIndex;
+    if (deltaX < 0) {
+      // Swipe left -> next tab
+      newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
+    } else {
+      // Swipe right -> previous tab
+      newIndex = Math.max(currentIndex - 1, 0);
+    }
+
+    if (newIndex !== currentIndex) {
+      switchToTab(visibleTabs[newIndex]);
+    }
+  }
+}
+
+function getVisibleTabs() {
+  return Array.from(document.querySelectorAll('.tab-item')).filter(tab => {
+    return tab.style.display !== 'none';
+  });
+}
+
+function getCurrentTabIndex(visibleTabs) {
+  const activeTab = document.querySelector('.tab-item.active');
+  return visibleTabs.indexOf(activeTab);
+}
 
 function closeModals() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
