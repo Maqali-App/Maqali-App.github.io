@@ -1,3 +1,5 @@
+// APP.JS - Corrected Version
+
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
   authDomain: "maqali-app-83b95.firebaseapp.com",
@@ -11,12 +13,13 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
-if (firebase.database.INTERNAL && firebase.database.INTERNAL.forceLongPolling) {
-  firebase.database.INTERNAL.forceLongPolling();
-}
+// Removed non‑standard forceLongPolling block.
 
 const db = firebase.database();
-firebase.auth().signInAnonymously();
+
+// Fix #4: Add .catch() to anonymous sign‑in
+firebase.auth().signInAnonymously()
+  .catch(err => console.warn("Anonymous auth failed:", err));
 
 let members = [];
 let isEditor = false;
@@ -29,7 +32,8 @@ let pendingTargetId = null;
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
   memberList.forEach(member => {
-    if (member.id && member.id.startsWith(prefix)) {
+    // Fix #3: Safe check for member.id type
+    if (typeof member.id === 'string' && member.id.startsWith(prefix)) {
       const numPart = parseInt(member.id.replace(prefix, ''), 10);
       if (!isNaN(numPart) && numPart > maxNum) {
         maxNum = numPart;
@@ -58,8 +62,14 @@ function applyEditorUI(editorId) {
 function restoreSession() {
   const savedEditorId = localStorage.getItem('activeEditorId');
   if (savedEditorId) {
-    applyEditorUI(savedEditorId);
-    setStatus(`Session restored as Editor ${savedEditorId}`);
+    // Fix #6: Validate that the saved editor still exists
+    const editorExists = members.some(m => m.id === savedEditorId);
+    if (editorExists) {
+      applyEditorUI(savedEditorId);
+      setStatus(`Session restored as Editor ${savedEditorId}`);
+    } else {
+      localStorage.removeItem('activeEditorId');
+    }
   }
 }
 
@@ -136,8 +146,9 @@ function closeModals() {
 document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
 document.getElementById('btnNewID').addEventListener('click', () => {
-  clearProfileForm();
+  // Fix #1: Read role BEFORE clearing form
   const role = document.getElementById('roleType').value;
+  clearProfileForm();
   const idInput = document.getElementById('memberId');
   
   if (role === 'Editor') {
@@ -223,7 +234,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   if (!existingMember) {
     const prefix = typedId.startsWith('E-') ? 'E-' : 'M-';
-
     const maxNum = getHighestIDNumber(members, prefix);
     const expectedNextId = formatID(prefix, maxNum + 1);
 
@@ -234,6 +244,15 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   }
 
   const isEditorRole = document.getElementById('roleType').value === 'Editor';
+  
+  // Fix #5: Validate role/ID consistency
+  if (typedId.startsWith('E-') && !isEditorRole) {
+    return alert("E- IDs must have Role Type = Editor.");
+  }
+  if (typedId.startsWith('M-') && isEditorRole) {
+    return alert("M- IDs cannot be Editor.");
+  }
+
   let existing = existingMember || {};
 
   const memberObj = {
@@ -385,6 +404,10 @@ document.getElementById('btnSavePayments').addEventListener('click', () => {
   const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
   if (!id) return alert("Enter Member ID first.");
 
+  // Fix #2: Check if member exists
+  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+  if (!m) return alert(`Member ID ${id} not found. Cannot save payments.`);
+
   const payments = [];
   for (let i = 0; i < 50; i++) {
     payments.push(document.getElementById(`wk_${i}`).value);
@@ -431,7 +454,10 @@ document.getElementById('btnAddLoan').addEventListener('click', () => {
   const amt = parseFloat(document.getElementById('newLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and loan amount.");
 
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id) || {};
+  // Fix #2: Check if member exists
+  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+  if (!m) return alert(`Member ID ${id} not found. Cannot add loan.`);
+
   const current = parseFloat(m.loanAmount) || 0;
 
   db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
@@ -447,7 +473,10 @@ document.getElementById('btnPayLoan').addEventListener('click', () => {
   const amt = parseFloat(document.getElementById('payLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and payment amount.");
 
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id) || {};
+  // Fix #2: Check if member exists
+  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+  if (!m) return alert(`Member ID ${id} not found. Cannot record repayment.`);
+
   const current = parseFloat(m.loanPaid) || 0;
 
   db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
@@ -596,6 +625,7 @@ function renderMembers(filterQuery = '') {
     const lPaid = parseFloat(m.loanPaid) || 0;
     const lBal = Math.max(0, lAmt - lPaid);
 
+    // Inline onclick remains; IDs are constrained to M-### and E-###, so safe.
     html += `
       <div class="member-card">
         <div class="member-info">
