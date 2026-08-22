@@ -1,6 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+<style>
+  /* Force all wrappers to allow touch events when Editor is active */
+  body.editor-active *,
+  body.editor-active .card,
+  body.editor-active form,
+  body.editor-active div {
+    pointer-events: auto !important;
+  }
+
+  body.editor-active input,
+  body.editor-active select,
+  body.editor-active button {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+</style>
+
+
 <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
 
