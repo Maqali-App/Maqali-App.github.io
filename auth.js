@@ -10,7 +10,7 @@ window.firebaseConfig = {
   measurementId: "G-RE6DXYQ0RL"
 };
 
-if (!firebase.apps.length) {
+if (typeof firebase !== "undefined" && !firebase.apps.length) {
   firebase.initializeApp(window.firebaseConfig);
 }
 
@@ -38,7 +38,7 @@ auth.onAuthStateChanged((user) => {
         authBtn.onclick = () => auth.signOut().then(() => window.location.reload());
       }
 
-      applyGlobalAccess(isEditor, true);
+      unlockUI({ isEditor: isEditor, isLoggedIn: true });
     } else {
       if (statusBox) statusBox.innerText = "STATUS: Read-Only (Please Log In)";
       if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
@@ -49,7 +49,7 @@ auth.onAuthStateChanged((user) => {
         authBtn.onclick = () => window.location.href = "login.html";
       }
 
-      applyGlobalAccess(false, false);
+      unlockUI({ isEditor: false, isLoggedIn: false });
     }
   };
 
@@ -60,32 +60,56 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-function applyGlobalAccess(isEditor, isLoggedIn) {
-  document.body.classList.toggle("is-editor", isEditor);
-  document.body.classList.toggle("is-logged-in", isLoggedIn);
+function unlockUI({ isEditor, isLoggedIn }) {
+  // 1. Force body class
+  document.body.classList.toggle("editor-active", isEditor);
 
-  // Clear inline disabled/readonly states on all controls
-  const allElements = document.querySelectorAll("input, select, textarea, button, .tab-btn, .nav-item");
-  
-  allElements.forEach(el => {
-    if (el.id === "authBtn") return;
+  // 2. Unlock ALL input, select, textarea elements for Editors
+  const inputs = document.getElementsByTagName("input");
+  const selects = document.getElementsByTagName("select");
+  const textareas = document.getElementsByTagName("textarea");
 
+  const formControls = [...inputs, ...selects, ...textareas];
+  formControls.forEach(el => {
     if (isEditor) {
+      el.disabled = false;
+      el.readOnly = false;
       el.removeAttribute("disabled");
       el.removeAttribute("readonly");
-      el.disabled = false;
-      el.style.pointerEvents = "auto";
-      el.style.opacity = "1";
-    } else if (isLoggedIn && (el.classList.contains("tab-btn") || el.classList.contains("nav-item") || el.closest("nav") || el.closest("footer"))) {
-      el.removeAttribute("disabled");
-      el.disabled = false;
       el.style.pointerEvents = "auto";
       el.style.opacity = "1";
     } else {
-      el.setAttribute("disabled", "true");
       el.disabled = true;
+      el.setAttribute("disabled", "true");
       el.style.pointerEvents = "none";
-      el.style.opacity = "0.5";
+      el.style.opacity = "0.6";
+    }
+  });
+
+  // 3. Unlock ALL buttons and links across the entire app
+  const buttons = document.getElementsByTagName("button");
+  const links = document.getElementsByTagName("a");
+  const allClickables = [...buttons, ...links];
+
+  allClickables.forEach(btn => {
+    if (btn.id === "authBtn") return;
+
+    // Check if element is a navigation item
+    const isNav = btn.closest("nav") || btn.closest("footer") || btn.classList.contains("tab-btn") || btn.classList.contains("nav-item");
+
+    if (isNav) {
+      // Navigation is unlocked for ANY logged-in user
+      btn.disabled = !isLoggedIn;
+      btn.style.pointerEvents = isLoggedIn ? "auto" : "none";
+      btn.style.opacity = isLoggedIn ? "1" : "0.4";
+      if (isLoggedIn) btn.removeAttribute("disabled");
+    } else {
+      // Form action buttons (Load, New ID, Create & Save) unlocked ONLY for Editors
+      btn.disabled = !isEditor;
+      btn.style.display = isEditor ? "inline-block" : "none";
+      btn.style.pointerEvents = isEditor ? "auto" : "none";
+      btn.style.opacity = isEditor ? "1" : "0.5";
+      if (isEditor) btn.removeAttribute("disabled");
     }
   });
 }
