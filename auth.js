@@ -38,7 +38,7 @@ auth.onAuthStateChanged((user) => {
         authBtn.onclick = () => auth.signOut().then(() => window.location.reload());
       }
 
-      applyAccessPermissions({ isEditor: isEditor, isLoggedIn: true });
+      applyGlobalAccess(isEditor, true);
     } else {
       if (statusBox) statusBox.innerText = "STATUS: Read-Only (Please Log In)";
       if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
@@ -49,7 +49,7 @@ auth.onAuthStateChanged((user) => {
         authBtn.onclick = () => window.location.href = "login.html";
       }
 
-      applyAccessPermissions({ isEditor: false, isLoggedIn: false });
+      applyGlobalAccess(false, false);
     }
   };
 
@@ -60,53 +60,28 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-function applyAccessPermissions({ isEditor, isLoggedIn }) {
-  // 1. Manage Form Inputs (Unlocked only for Editor)
-  document.querySelectorAll("input, select, textarea").forEach(el => {
+function applyGlobalAccess(isEditor, isLoggedIn) {
+  // Toggle CSS indicator classes on <body>
+  document.body.classList.toggle("is-editor", isEditor);
+  document.body.classList.toggle("is-logged-in", isLoggedIn);
+
+  // Strip all hardcoded disabled / readonly attributes
+  document.querySelectorAll("input, select, textarea, button").forEach(el => {
+    if (el.id === "authBtn") return;
+
     if (isEditor) {
-      el.disabled = false;
       el.removeAttribute("disabled");
       el.removeAttribute("readonly");
-      el.style.pointerEvents = "auto";
-      el.style.opacity = "1";
+      el.disabled = false;
     } else {
-      el.disabled = true;
-      el.setAttribute("disabled", "true");
-      el.style.pointerEvents = "none";
-      el.style.opacity = "0.6";
-    }
-  });
-
-  // 2. Manage Navigation Tabs (Unlocked for ANY logged-in user)
-  const navTabs = document.querySelectorAll(".tab-btn, .nav-item, footer button, nav button, footer a, nav a, .bottom-nav button");
-  navTabs.forEach(tab => {
-    if (isLoggedIn) {
-      tab.style.pointerEvents = "auto";
-      tab.style.opacity = "1";
-      tab.removeAttribute("disabled");
-    } else {
-      tab.style.pointerEvents = "none";
-      tab.style.opacity = "0.4";
-    }
-  });
-
-  // 3. Manage Action Buttons (Load, New ID, Create & Save) - Unlocked for Editor
-  const actionBtns = document.querySelectorAll("button:not(#authBtn), .action-btn, .save-btn, #btnSaveMember");
-  actionBtns.forEach(btn => {
-    // Skip bottom navigation buttons from being hidden
-    if (btn.classList.contains("tab-btn") || btn.classList.contains("nav-item")) return;
-
-    if (isEditor) {
-      btn.disabled = false;
-      btn.removeAttribute("disabled");
-      btn.style.display = "inline-block";
-      btn.style.pointerEvents = "auto";
-      btn.style.opacity = "1";
-    } else {
-      btn.disabled = true;
-      btn.style.display = "none";
-      btn.style.pointerEvents = "none";
-      btn.style.opacity = "0.5";
+      // Keep nav tabs functional if logged in as Member
+      if (isLoggedIn && (el.classList.contains("tab-btn") || el.classList.contains("nav-item"))) {
+        el.removeAttribute("disabled");
+        el.disabled = false;
+      } else {
+        el.setAttribute("disabled", "true");
+        el.disabled = true;
+      }
     }
   });
 }
