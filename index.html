@@ -1,80 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-<style>
-  /* Force all wrappers to allow touch events when Editor is active */
-  body.editor-active *,
-  body.editor-active .card,
-  body.editor-active form,
-  body.editor-active div {
-    pointer-events: auto !important;
-  }
-
-  body.editor-active input,
-  body.editor-active select,
-  body.editor-active button {
-    pointer-events: auto !important;
-    opacity: 1 !important;
-    user-select: text !important;
-    -webkit-user-select: text !important;
-  }
-</style>
-
-
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-
-<style>
-  /* 1. Global Touch & Click Unlocks for Editor Mode */
-  body.is-editor,
-  body.is-editor *,
-  body.is-editor form,
-  body.is-editor .card,
-  body.is-editor .container,
-  body.is-editor .main-content {
-    pointer-events: auto !important;
-    user-select: text !important;
-    -webkit-user-select: text !important;
-  }
-
-  body.is-editor input,
-  body.is-editor select,
-  body.is-editor textarea,
-  body.is-editor button {
-    pointer-events: auto !important;
-    opacity: 1 !important;
-    cursor: pointer !important;
-    display: inline-block !important;
-  }
-
-  /* 2. Global Bottom Navigation Unlock for Logged-In Users */
-  body.is-logged-in nav,
-  body.is-logged-in footer,
-  body.is-logged-in .bottom-nav,
-  body.is-logged-in .tab-btn,
-  body.is-logged-in .nav-item,
-  body.is-logged-in footer button,
-  body.is-logged-in nav button,
-  body.is-logged-in footer a,
-  body.is-logged-in nav a {
-    pointer-events: auto !important;
-    opacity: 1 !important;
-    cursor: pointer !important;
-  }
-
-  /* 3. Remove hardcoded dark masks or transparent overlays */
-  body.is-editor .overlay,
-  body.is-editor .modal-backdrop {
-    display: none !important;
-    pointer-events: none !important;
-  }
-</style>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MAQALI FAMILY MEETING - Dashboard</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Mobile Developer Console -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+
+  <!-- Global Master CSS Unlocks -->
+  <style>
+    body.is-editor,
+    body.is-editor *,
+    body.editor-active,
+    body.editor-active * {
+      pointer-events: auto !important;
+      user-select: text !important;
+      -webkit-user-select: text !important;
+    }
+
+    body.is-editor input,
+    body.is-editor select,
+    body.is-editor textarea,
+    body.is-editor button,
+    body.editor-active input,
+    body.editor-active select,
+    body.editor-active textarea,
+    body.editor-active button {
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+    }
+
+    body.is-logged-in .tab-bar,
+    body.is-logged-in .tab-item,
+    body.is-logged-in nav,
+    body.is-logged-in footer {
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      cursor: pointer !important;
+    }
+
+    .tab-item {
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      -webkit-tap-highlight-color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
 
   <!-- Firebase Web SDK Imports -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -85,7 +59,7 @@
 
   <div class="top-bar">
     <span class="role-badge" id="roleBadge">Not Authenticated</span>
-   <button id="authBtn" class="login-btn">Login</button>
+    <button id="authBtn" class="login-btn">Login</button>
   </div>
 
   <div class="status-banner" id="statusBanner">STATUS: Loading session...</div>
@@ -244,35 +218,7 @@
 
   </div>
 
-  <!-- MODAL: ADMIN SECURITY PIN -->
-  <div class="modal-overlay" id="modalSecurityPin">
-    <div class="modal-box">
-      <div class="modal-title" style="color: #ffd700;">SECURITY VERIFICATION</div>
-      <div class="modal-subtitle" id="securityPinSubTitle">Enter Admin Security PIN to proceed</div>
-      <div class="field-row">
-        <span class="field-label">Master PIN</span>
-        <input type="password" id="securityPinInput" class="field-input" placeholder="Admin PIN">
-      </div>
-      <button class="action-btn" id="btnVerifySecurityPin" style="width: 100%; margin-top: 8px; background: #007AFF;">OK</button>
-      <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
-    </div>
-  </div>
-
-  <!-- MODAL: ACTION CONFIRMATION -->
-  <div class="modal-overlay" id="modalActionConfirm">
-    <div class="modal-box">
-      <div class="modal-title" style="color: #ff6b6b;" id="actionConfirmTitle">CONFIRM ACTION</div>
-      <div class="modal-subtitle" id="actionConfirmMsg" style="color: #fff; font-size: 12px; margin: 12px 0;">
-        Are you sure you want to proceed?
-      </div>
-      <div class="btn-row">
-        <button class="action-btn" id="btnExecuteAction" style="background: #dc3545;">Confirm</button>
-        <button class="action-btn btn-close-modal" style="background: #555;">Cancel</button>
-      </div>
-    </div>
-  </div>
-
   <script src="auth.js"></script>
   <script src="app.js"></script>
 </body>
-         </html>
+</html>
