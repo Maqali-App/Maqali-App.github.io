@@ -1,4 +1,4 @@
-// APP.JS – Full version with privacy restrictions
+// APP.JS – Full version with privacy restrictions and fixed modal locking
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -140,23 +140,34 @@ function updateTabsVisibility() {
 }
 
 function lockAllTabs() {
+  // Disable all inputs, selects, and buttons that are NOT inside a modal overlay
   document.querySelectorAll('input, select, button').forEach(el => {
-    if (el.id !== 'loginBtn' && !el.classList.contains('btn-close-modal')) {
+    if (
+      el.id !== 'loginBtn' &&
+      !el.closest('.modal-overlay') &&          // skip modal elements
+      !el.classList.contains('btn-close-modal') // also skip close buttons
+    ) {
       el.disabled = true;
     }
   });
 }
 
 function unlockAllTabs() {
+  // Re-enable all non-modal elements
   document.querySelectorAll('input, select, button').forEach(el => {
-    el.disabled = false;
+    if (!el.closest('.modal-overlay')) {
+      el.disabled = false;
+    }
   });
-  
-  // But keep ID fields locked for normal members
+
+  // If a normal member is logged in, lock ID fields but keep them enabled for Load button
   if (activeUserRole === "member") {
     ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
-      document.getElementById(fid).readOnly = true;
-      document.getElementById(fid).disabled = false; // allow Load button
+      const field = document.getElementById(fid);
+      if (field) {
+        field.readOnly = true;
+        field.disabled = false; // allow Load button click
+      }
     });
   }
 }
