@@ -61,27 +61,31 @@ auth.onAuthStateChanged((user) => {
 });
 
 function applyGlobalAccess(isEditor, isLoggedIn) {
-  // Toggle CSS indicator classes on <body>
   document.body.classList.toggle("is-editor", isEditor);
   document.body.classList.toggle("is-logged-in", isLoggedIn);
 
-  // Strip all hardcoded disabled / readonly attributes
-  document.querySelectorAll("input, select, textarea, button").forEach(el => {
+  // Clear inline disabled/readonly states on all controls
+  const allElements = document.querySelectorAll("input, select, textarea, button, .tab-btn, .nav-item");
+  
+  allElements.forEach(el => {
     if (el.id === "authBtn") return;
 
     if (isEditor) {
       el.removeAttribute("disabled");
       el.removeAttribute("readonly");
       el.disabled = false;
+      el.style.pointerEvents = "auto";
+      el.style.opacity = "1";
+    } else if (isLoggedIn && (el.classList.contains("tab-btn") || el.classList.contains("nav-item") || el.closest("nav") || el.closest("footer"))) {
+      el.removeAttribute("disabled");
+      el.disabled = false;
+      el.style.pointerEvents = "auto";
+      el.style.opacity = "1";
     } else {
-      // Keep nav tabs functional if logged in as Member
-      if (isLoggedIn && (el.classList.contains("tab-btn") || el.classList.contains("nav-item"))) {
-        el.removeAttribute("disabled");
-        el.disabled = false;
-      } else {
-        el.setAttribute("disabled", "true");
-        el.disabled = true;
-      }
+      el.setAttribute("disabled", "true");
+      el.disabled = true;
+      el.style.pointerEvents = "none";
+      el.style.opacity = "0.5";
     }
   });
 }
