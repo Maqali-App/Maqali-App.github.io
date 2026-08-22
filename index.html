@@ -1,6 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<style>
+  /* Force ALL inputs, buttons, and selects to be fully clickable when logged in as Editor */
+  body.is-editor input,
+  body.is-editor select,
+  body.is-editor textarea,
+  body.is-editor button {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
+  /* Force navigation tabs open when ANY user is logged in */
+  body.is-logged-in .tab-btn,
+  body.is-logged-in .nav-item,
+  body.is-logged-in footer button,
+  body.is-logged-in nav button {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
+  }
+</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MAQALI FAMILY MEETING - Dashboard</title>
