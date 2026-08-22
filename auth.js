@@ -16,15 +16,14 @@ if (!firebase.apps.length) {
 
 const auth = firebase.auth();
 
-// Run Auth Listener IMMEDIATELY
 auth.onAuthStateChanged((user) => {
   const isLoginPage = window.location.pathname.endsWith("login.html");
   if (isLoginPage) return;
 
   const updateUI = () => {
-    // Specifically targets statusBanner
     const statusBox = document.getElementById("statusBanner") || document.getElementById("statusMessage") || document.querySelector(".status-bar");
     const roleBadge = document.getElementById("roleBadge") || document.querySelector(".role-badge");
+    const authBtn = document.getElementById("authBtn") || document.querySelector(".top-bar button, header button");
 
     if (user) {
       const email = user.email || "";
@@ -33,10 +32,24 @@ auth.onAuthStateChanged((user) => {
       if (statusBox) statusBox.innerText = "STATUS: Connected (" + email + ")";
       if (roleBadge) roleBadge.innerText = isEditor ? "Role: Editor (Full Access)" : "Role: Member (View-Only)";
 
+      // Configure button for Sign Out action
+      if (authBtn) {
+        authBtn.innerText = "Sign Out";
+        authBtn.style.backgroundColor = "#dc2626"; // Red button
+        authBtn.onclick = () => auth.signOut().then(() => window.location.reload());
+      }
+
       toggleUIState({ inputsLocked: !isEditor, tabsLocked: false, showSaveBtns: isEditor });
     } else {
       if (statusBox) statusBox.innerText = "STATUS: Read-Only (Please Log In)";
       if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
+
+      // Configure button for Login redirect
+      if (authBtn) {
+        authBtn.innerText = "Login";
+        authBtn.style.backgroundColor = "#2563eb"; // Blue button
+        authBtn.onclick = () => window.location.href = "login.html";
+      }
 
       toggleUIState({ inputsLocked: true, tabsLocked: true, showSaveBtns: false });
     }
