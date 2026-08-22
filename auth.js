@@ -26,32 +26,30 @@ auth.onAuthStateChanged((user) => {
     const authBtn = document.getElementById("authBtn") || document.querySelector(".top-bar button, header button");
 
     if (user) {
-      const email = user.email || "";
-      const isEditor = email.startsWith("e-");
+      const email = (user.email || "").toLowerCase();
+      const isEditor = email.startsWith("e-") || email.includes("editor");
 
-      if (statusBox) statusBox.innerText = "STATUS: Connected (" + email + ")";
+      if (statusBox) statusBox.innerText = "STATUS: Connected (" + user.email + ")";
       if (roleBadge) roleBadge.innerText = isEditor ? "Role: Editor (Full Access)" : "Role: Member (View-Only)";
 
-      // Configure button for Sign Out action
       if (authBtn) {
         authBtn.innerText = "Sign Out";
-        authBtn.style.backgroundColor = "#dc2626"; // Red button
+        authBtn.style.backgroundColor = "#dc2626";
         authBtn.onclick = () => auth.signOut().then(() => window.location.reload());
       }
 
-      toggleUIState({ inputsLocked: !isEditor, tabsLocked: false, showSaveBtns: isEditor });
+      applyAccessPermissions({ isEditor: isEditor, isLoggedIn: true });
     } else {
       if (statusBox) statusBox.innerText = "STATUS: Read-Only (Please Log In)";
       if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
 
-      // Configure button for Login redirect
       if (authBtn) {
         authBtn.innerText = "Login";
-        authBtn.style.backgroundColor = "#2563eb"; // Blue button
+        authBtn.style.backgroundColor = "#2563eb";
         authBtn.onclick = () => window.location.href = "login.html";
       }
 
-      toggleUIState({ inputsLocked: true, tabsLocked: true, showSaveBtns: false });
+      applyAccessPermissions({ isEditor: false, isLoggedIn: false });
     }
   };
 
@@ -62,15 +60,53 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-function toggleUIState({ inputsLocked, tabsLocked, showSaveBtns }) {
-  document.querySelectorAll("input, select").forEach(el => el.disabled = inputsLocked);
-  
-  document.querySelectorAll(".tab-btn, .nav-item").forEach(el => {
-    el.style.pointerEvents = tabsLocked ? "none" : "auto";
-    el.style.opacity = tabsLocked ? "0.5" : "1";
+function applyAccessPermissions({ isEditor, isLoggedIn }) {
+  // 1. Manage Form Inputs (Unlocked only for Editor)
+  document.querySelectorAll("input, select, textarea").forEach(el => {
+    if (isEditor) {
+      el.disabled = false;
+      el.removeAttribute("disabled");
+      el.removeAttribute("readonly");
+      el.style.pointerEvents = "auto";
+      el.style.opacity = "1";
+    } else {
+      el.disabled = true;
+      el.setAttribute("disabled", "true");
+      el.style.pointerEvents = "none";
+      el.style.opacity = "0.6";
+    }
   });
 
-  document.querySelectorAll(".save-btn, .action-btn, #btnSaveMember").forEach(el => {
-    el.style.display = showSaveBtns ? "inline-block" : "none";
+  // 2. Manage Navigation Tabs (Unlocked for ANY logged-in user)
+  const navTabs = document.querySelectorAll(".tab-btn, .nav-item, footer button, nav button, footer a, nav a, .bottom-nav button");
+  navTabs.forEach(tab => {
+    if (isLoggedIn) {
+      tab.style.pointerEvents = "auto";
+      tab.style.opacity = "1";
+      tab.removeAttribute("disabled");
+    } else {
+      tab.style.pointerEvents = "none";
+      tab.style.opacity = "0.4";
+    }
+  });
+
+  // 3. Manage Action Buttons (Load, New ID, Create & Save) - Unlocked for Editor
+  const actionBtns = document.querySelectorAll("button:not(#authBtn), .action-btn, .save-btn, #btnSaveMember");
+  actionBtns.forEach(btn => {
+    // Skip bottom navigation buttons from being hidden
+    if (btn.classList.contains("tab-btn") || btn.classList.contains("nav-item")) return;
+
+    if (isEditor) {
+      btn.disabled = false;
+      btn.removeAttribute("disabled");
+      btn.style.display = "inline-block";
+      btn.style.pointerEvents = "auto";
+      btn.style.opacity = "1";
+    } else {
+      btn.disabled = true;
+      btn.style.display = "none";
+      btn.style.pointerEvents = "none";
+      btn.style.opacity = "0.5";
+    }
   });
 }
