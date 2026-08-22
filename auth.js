@@ -15,20 +15,67 @@ if (!firebase.apps.length) {
 }
 
 const auth = firebase.auth();
+const db = firebase.database();
 
-// Centralized Navigation Guard
+// Universal Role Guard & State Manager
 auth.onAuthStateChanged((user) => {
   const isLoginPage = window.location.pathname.endsWith("login.html");
 
   if (user) {
-    // Logged in: redirect from login page back to home
     if (isLoginPage) {
       window.location.href = "index.html";
+    } else {
+      applyUserPermissions(user);
     }
   } else {
-    // Logged out: redirect to login page if on index or root
-    if (!isLoginPage) {
-      window.location.href = "login.html";
-    }
+    // Unauthenticated: Stay on index.html in Read-Only mode
+    applyReadOnlyMode();
   }
 });
+
+// Lock Interface for Unauthenticated Visitors
+function applyReadOnlyMode() {
+  const roleBadge = document.getElementById("roleBadge");
+  if (roleBadge) roleBadge.innerText = "Role: Viewer (Read-Only)";
+
+  // Disable forms and inputs
+  document.querySelectorAll("input, select").forEach(el => el.disabled = true);
+  document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "none");
+}
+
+// Grant Permissions Based on Role
+function applyUserPermissions(user) {
+  const email = user.email || "";
+  const isEditor = email.startsWith("e-");
+
+  const roleBadge = document.getElementById("roleBadge");
+  if (roleBadge) {
+    roleBadge.innerText = isEditor ? "Role: Editor (Full Access)" : "Role: Member (View-Only)";
+  }
+
+  if (isEditor) {
+    document.querySelectorAll("input, select").forEach(el => el.disabled = false);
+    document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "inline-block");
+  } else {
+    document.querySelectorAll("input, select").forEach(el => el.disabled = true);
+    document.querySelectorAll(".save-btn, .action-btn").forEach(el => el.style.display = "none");
+  }
+}
+
+// Admin PIN Password Reset Function
+async function resetPasswordWithPin(memberId, newPassword, enteredPin) {
+  try {
+    const pinSnapshot = await db.ref("settings/adminResetPin").once("value");
+    const masterPin = pinSnapshot.val() || "1234"; // Default fallback PIN
+
+    if (enteredPin !== masterPin) {
+      alert("Invalid Admin Reset PIN. Please check with your Admin.");
+      return;
+    }
+
+    // Call Cloud/Backend or Secondary process to update password
+    alert("PIN Verified! Contact Editor to finalize credential sync or use secondary updater.");
+  } catch (err) {
+    alert("Reset Error: " + err.message);
+  }
+}
