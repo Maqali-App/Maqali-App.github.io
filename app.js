@@ -1,4 +1,4 @@
-// APP.JS – Full version with privacy restrictions and fixed modal locking
+// APP.JS – Full version with Members tab visible for normal members
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -121,18 +121,8 @@ function updateTabsVisibility() {
         tab.style.display = "none";
       }
     });
-  } else if (activeUserRole === "member") {
-    // Logged in as normal member: show Profile, Weekly, Loans, Summary (hide Members)
-    tabItems.forEach(tab => {
-      const tabName = tab.getAttribute('data-tab');
-      if (tabName === 'Members') {
-        tab.style.display = "none";
-      } else {
-        tab.style.display = "flex";
-      }
-    });
   } else {
-    // Editor: show all tabs
+    // Logged in as either member or editor: show all tabs
     tabItems.forEach(tab => {
       tab.style.display = "flex";
     });
@@ -140,7 +130,6 @@ function updateTabsVisibility() {
 }
 
 function lockAllTabs() {
-  // Disable all inputs, selects, and buttons that are NOT inside a modal overlay
   document.querySelectorAll('input, select, button').forEach(el => {
     if (
       el.id !== 'loginBtn' &&
@@ -153,26 +142,23 @@ function lockAllTabs() {
 }
 
 function unlockAllTabs() {
-  // Re-enable all non-modal elements
   document.querySelectorAll('input, select, button').forEach(el => {
     if (!el.closest('.modal-overlay')) {
       el.disabled = false;
     }
   });
 
-  // If a normal member is logged in, lock ID fields but keep them enabled for Load button
   if (activeUserRole === "member") {
     ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
       const field = document.getElementById(fid);
       if (field) {
         field.readOnly = true;
-        field.disabled = false; // allow Load button click
+        field.disabled = false;
       }
     });
   }
 }
 
-// Helper to enable all fields inside a specific modal
 function enableModalElements(modalId) {
   document.querySelectorAll(`#${modalId} input, #${modalId} select, #${modalId} button`).forEach(el => {
     el.disabled = false;
@@ -210,7 +196,6 @@ function showLoginPrompt() {
       `;
       profileTab.insertBefore(loginPrompt, profileTab.firstChild);
       
-      // Add click event to the prompt button to open login modal and enable its fields
       document.getElementById('loginPromptBtn').addEventListener('click', () => {
         enableModalElements('modalLogin');
         document.getElementById('modalLogin').classList.add('active');
@@ -309,10 +294,6 @@ document.querySelectorAll('.tab-item').forEach(item => {
   item.addEventListener('click', function() {
     if (activeUserRole === "viewer" && this.getAttribute('data-tab') !== 'Profile') {
       alert("Please log in to access this section.");
-      return;
-    }
-    if (activeUserRole === "member" && this.getAttribute('data-tab') === 'Members') {
-      alert("Members list is only available to editors.");
       return;
     }
     
