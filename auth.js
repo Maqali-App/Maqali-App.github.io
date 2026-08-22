@@ -16,12 +16,15 @@ if (!firebase.apps.length) {
 
 const auth = firebase.auth();
 
-document.addEventListener("DOMContentLoaded", () => {
-  auth.onAuthStateChanged((user) => {
-    const isLoginPage = window.location.pathname.endsWith("login.html");
-    if (isLoginPage) return;
+// Run Auth Listener IMMEDIATELY (Do not wait for DOMContentLoaded wrapper)
+auth.onAuthStateChanged((user) => {
+  const isLoginPage = window.location.pathname.endsWith("login.html");
+  if (isLoginPage) return;
 
-    const statusBox = document.getElementById("statusMessage") || document.querySelector(".status-bar");
+  // Execute UI updates once DOM elements exist
+  const updateUI = () => {
+    // Search for any element containing status or role text
+    const statusBox = document.getElementById("statusMessage") || document.getElementById("statusText") || document.querySelector(".status-bar");
     const roleBadge = document.getElementById("roleBadge") || document.querySelector(".role-badge");
 
     if (user) {
@@ -38,7 +41,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toggleUIState({ inputsLocked: true, tabsLocked: true, showSaveBtns: false });
     }
-  });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", updateUI);
+  } else {
+    updateUI();
+  }
 });
 
 function toggleUIState({ inputsLocked, tabsLocked, showSaveBtns }) {
