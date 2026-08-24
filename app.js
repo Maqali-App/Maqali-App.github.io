@@ -1,4 +1,4 @@
-// APP.JS – Full corrected version with improved login for existing users
+// APP.JS – Full version with overlay login prompt, swipe navigation, privacy, and logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -13,19 +13,20 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const auth = firebase.auth();
+
+firebase.auth().signInAnonymously()
+  .catch(err => console.warn("Anonymous auth failed:", err));
 
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer";
+let activeUserRole = "viewer";  // "viewer", "member", or "editor"
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
 let pendingTargetId = null;
 
 const DEFAULT_PASSWORD = "1234";
-const EMAIL_DOMAIN = "@maqali.com";
 
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
@@ -93,12 +94,14 @@ function applyMemberUI(memberId) {
   unlockAllTabs();
   hideLoginPrompt();
 
+  // Lock all ID inputs to this member's ID
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
     const el = document.getElementById(fid);
     el.value = memberId;
     el.readOnly = true;
   });
 
+  // Auto-load member's data
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
@@ -109,12 +112,20 @@ function updateTabsVisibility() {
   const tabItems = document.querySelectorAll('.tab-item');
   
   if (activeUserRole === "viewer") {
+    // Not logged in: show only Profile tab
     tabItems.forEach(tab => {
       const tabName = tab.getAttribute('data-tab');
-      tab.style.display = (tabName === 'Profile') ? "flex" : "none";
+      if (tabName === 'Profile') {
+        tab.style.display = "flex";
+      } else {
+        tab.style.display = "none";
+      }
     });
   } else {
-    tabItems.forEach(tab => tab.style.display = "flex");
+    // Logged in as either member or editor: show all tabs
+    tabItems.forEach(tab => {
+      tab.style.display = "flex";
+    });
   }
 }
 
@@ -156,6 +167,7 @@ function enableModalElements(modalId) {
 
 // ------------------- LOGIN PROMPT OVERLAY -------------------
 function showLoginPrompt() {
+  // Remove any existing overlay
   hideLoginPrompt();
 
   const overlay = document.createElement('div');
@@ -220,55 +232,22 @@ function hideLoginPrompt() {
   if (overlay) overlay.remove();
 }
 
-// ------------------- AUTH STATE HANDLER -------------------
-auth.onAuthStateChanged(user => {
-  if (user) {
-    db.ref('members').orderByChild('uid').equalTo(user.uid).once('value')
-      .then(snap => {
-        const memberData = snap.val();
-        if (memberData) {
-          const member = Object.values(memberData)[0];
-          if (member.isEditor) applyEditorUI(member.id);
-          else applyMemberUI(member.id);
-          setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
-        } else {
-          // Fallback: try match by email prefix (legacy)
-          const emailPrefix = user.email.split('@')[0].toUpperCase();
-          const legacyMember = members.find(m => m.id === emailPrefix);
-          if (legacyMember) {
-            db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
-            if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
-            else applyMemberUI(legacyMember.id);
-            setStatus(`Logged in as ${legacyMember.isEditor ? 'Editor' : 'Member'} ${legacyMember.id}`);
-          } else {
-            auth.signOut();
-            setViewerMode();
-            setStatus("User not found. Please contact an editor.");
-          }
-        }
-      })
-      .catch(err => {
-        console.error("Auth query error:", err);
-        // Fallback to email prefix
-        const emailPrefix = user.email.split('@')[0].toUpperCase();
-        const legacyMember = members.find(m => m.id === emailPrefix);
-        if (legacyMember) {
-          db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
-          if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
-          else applyMemberUI(legacyMember.id);
-          setStatus(`Logged in as ${legacyMember.isEditor ? 'Editor' : 'Member'} ${legacyMember.id}`);
-        } else {
-          auth.signOut();
-          setViewerMode();
-        }
-      });
-  } else {
-    restoreSession();
-  }
-});
-
 function restoreSession() {
-  localStorage.removeItem('activeUserId');
+  const savedId = localStorage.getItem('activeUserId');
+  if (savedId) {
+    const found = members.find(m => m.id === savedId);
+    if (found) {
+      if (found.isEditor) {
+        applyEditorUI(savedId);
+      } else {
+        applyMemberUI(savedId);
+      }
+      setStatus(`Session restored as ${found.isEditor ? 'Editor' : 'Member'} ${savedId}`);
+      return;
+    } else {
+      localStorage.removeItem('activeUserId');
+    }
+  }
   setViewerMode();
 }
 
@@ -285,8 +264,9 @@ function getPaymentsArray(raw) {
 }
 
 function clearProfileForm() {
-  document.getElementById('memberId').value = '';
-  document.getElementById('memberId').readOnly = false;
+  const idInput = document.getElementById('memberId');
+  idInput.value = '';
+  idInput.readOnly = false;
   isEditingExistingMember = false;
 
   document.getElementById('name').value = '';
@@ -295,7 +275,6 @@ function clearProfileForm() {
   document.getElementById('familyTies').value = '';
   document.getElementById('roleType').value = 'Member';
   document.getElementById('password').value = '';
-  document.getElementById('email').value = '';
   document.getElementById('profWeeksPaid').innerText = '0';
   document.getElementById('profAmountSaved').innerText = '₦0';
   document.getElementById('profLoanAmount').innerText = '₦0';
@@ -325,6 +304,10 @@ db.ref('members').on('value', (snapshot) => {
   members = data ? Object.values(data) : [];
   renderMembers();
   renderSummary();
+  if (!window._sessionRestored) {
+    restoreSession();
+    window._sessionRestored = true;
+  }
 }, (error) => {
   setStatus("Database Error: " + error.message);
 });
@@ -336,6 +319,7 @@ document.querySelectorAll('.tab-item').forEach(item => {
       alert("Please log in to access this section.");
       return;
     }
+    
     switchToTab(this);
   });
 });
@@ -370,6 +354,7 @@ function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
 
+  // Only consider horizontal swipe if it's significantly larger than vertical
   if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
@@ -379,8 +364,10 @@ function handleSwipe() {
 
     let newIndex;
     if (deltaX < 0) {
+      // Swipe left -> next tab
       newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
     } else {
+      // Swipe right -> previous tab
       newIndex = Math.max(currentIndex - 1, 0);
     }
 
@@ -416,13 +403,19 @@ document.getElementById('btnNewID').addEventListener('click', () => {
   if (role === 'Editor') {
     const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
     const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
-    if (!hasE001) idInput.value = 'E-001';
-    else if (!hasE002) idInput.value = 'E-002';
-    else { alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed."); return; }
+    if (!hasE001) {
+      idInput.value = 'E-001';
+    } else if (!hasE002) {
+      idInput.value = 'E-002';
+    } else {
+      alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
+      return;
+    }
   } else {
     const maxNum = getHighestIDNumber(members, 'M-');
     idInput.value = formatID('M-', maxNum + 1);
   }
+
   idInput.readOnly = true;
   isEditingExistingMember = false;
   setStatus("Generated New ID: " + idInput.value);
@@ -430,14 +423,16 @@ document.getElementById('btnNewID').addEventListener('click', () => {
 
 function loadProfileForMember(id) {
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) { alert(`Member ID '${id}' not found.`); return; }
+  if (!m) {
+    alert(`Member ID '${id}' not found.`);
+    return;
+  }
 
   document.getElementById('name').value = m.name || '';
   document.getElementById('age').value = m.age || '';
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
-  document.getElementById('email').value = m.email || `${m.id}${EMAIL_DOMAIN}`;
   document.getElementById('password').value = '';
 
   const payments = getPaymentsArray(m.weeklyPayments);
@@ -476,8 +471,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const typedId = document.getElementById('memberId').value.trim().toUpperCase();
   const name = document.getElementById('name').value.trim();
-  const emailInput = document.getElementById('email').value.trim().toLowerCase();
-  const passwordInput = document.getElementById('password').value.trim();
 
   if (!typedId || !name) return alert("Please enter both Member ID and Name.");
   if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) 
@@ -501,68 +494,24 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
   if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
-  const email = emailInput || `${typedId.toLowerCase()}${EMAIL_DOMAIN}`;
-  const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
+  let existing = existingMember || {};
+  const passwordInput = document.getElementById('password').value.trim();
+  const password = passwordInput || existing.password || DEFAULT_PASSWORD;
+
+  const memberObj = {
+    id: typedId,
+    name,
+    age: document.getElementById('age').value,
+    phone: document.getElementById('phone').value,
+    familyTies: document.getElementById('familyTies').value,
+    isEditor: isEditorRole,
+    password,
+    weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
+    loanAmount: existing.loanAmount || 0,
+    loanPaid: existing.loanPaid || 0
+  };
 
   try {
-    let uid = existingMember ? existingMember.uid : null;
-
-    if (!existingMember) {
-      // Create Auth user via REST API to keep editor signed in
-      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          returnSecureToken: false
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to create auth user.');
-      }
-      uid = data.localId;  // Firebase UID
-    } else if (!existingMember.uid) {
-      // Existing member missing uid: create auth user via REST API (keeps editor signed in)
-      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          returnSecureToken: false
-        })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        uid = data.localId;
-      } else if (data.error?.message === 'EMAIL_EXISTS') {
-        // User already exists; we need to fetch their UID.
-        // This is tricky without signing out editor; we'll skip for now, but log a warning.
-        console.warn(`Auth user already exists for ${email}. UID not stored automatically.`);
-      } else {
-        console.warn("Could not create auth user:", data.error?.message);
-      }
-    }
-
-    const memberObj = {
-      id: typedId,
-      name,
-      age: document.getElementById('age').value,
-      phone: document.getElementById('phone').value,
-      familyTies: document.getElementById('familyTies').value,
-      isEditor: isEditorRole,
-      email,
-      uid,
-      password,
-      weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-      loanAmount: existingMember ? existingMember.loanAmount : 0,
-      loanPaid: existingMember ? existingMember.loanPaid : 0
-    };
-
     await db.ref('members/' + typedId).set(memberObj);
     alert(`Member ${typedId} saved successfully!`);
     clearProfileForm();
@@ -575,7 +524,8 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
-  if (auth.currentUser) {
+  if (activeUserId) {
+    // Show logout confirmation modal
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
     document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
@@ -587,45 +537,25 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   }
 });
 
-// Improved login: handles existing members without auth accounts
-document.getElementById('btnSubmitLogin').addEventListener('click', async () => {
+document.getElementById('btnSubmitLogin').addEventListener('click', () => {
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
 
-  const member = members.find(m => m.id === id);
-  if (!member) return alert("Member ID not found.");
-
-  const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
-  const storedPass = member.password || DEFAULT_PASSWORD;
-
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-    closeModals();
-    setStatus("Login successful.");
-    // onAuthStateChanged will handle UI
-  } catch (err) {
-    if (err.code === 'auth/user-not-found') {
-      // Check if password matches stored password
-      if (pass === storedPass) {
-        try {
-          // Create auth account for legacy member
-          const cred = await auth.createUserWithEmailAndPassword(email, pass);
-          await db.ref('members/' + id + '/uid').set(cred.user.uid);
-          closeModals();
-          setStatus("Login successful (account created).");
-        } catch (createErr) {
-          alert("Failed to create account: " + createErr.message);
-        }
-      } else {
-        alert("Incorrect password.");
-      }
-    } else if (err.code === 'auth/wrong-password') {
-      alert("Incorrect password.");
+  db.ref('members/' + id).once('value').then(snap => {
+    const member = snap.val();
+    if (!member) return alert("Member ID not found.");
+    const storedPass = member.password || DEFAULT_PASSWORD;
+    if (storedPass === pass) {
+      localStorage.setItem('activeUserId', id);
+      if (member.isEditor) applyEditorUI(id);
+      else applyMemberUI(id);
+      closeModals();
+      setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${id}`);
     } else {
-      alert("Login failed: " + err.message);
+      alert("Incorrect Password!");
     }
-  }
+  }).catch(err => alert("Login error: " + err.message));
 });
 
 // ------------------- PASSWORD RECOVERY -------------------
@@ -652,28 +582,21 @@ document.getElementById('btnVerifyReset').addEventListener('click', () => {
 document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   const inputPin = document.getElementById('resetMasterPin').value.trim();
-  const newPass = document.getElementById('resetNewPass').value;
-  const verPass = document.getElementById('resetVerPass').value;
+  const p1 = document.getElementById('resetNewPass').value;
+  const p2 = document.getElementById('resetVerPass').value;
   if (!id || !inputPin) return alert("Please fill all fields.");
-  if (newPass !== verPass) return alert("New passwords do not match.");
+  if (p1 !== p2) return alert("New passwords do not match.");
 
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
-      if (!actualPin) throw new Error("Master PIN missing.");
+      if (!actualPin) throw new Error("masterPin missing in database.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
       return db.ref('members/' + id).once('value');
     })
     .then(memberSnap => {
       if (!memberSnap.exists()) throw new Error("Member ID not found.");
-      const member = memberSnap.val();
-      const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
-      const oldPass = member.password || DEFAULT_PASSWORD;
-      // Sign out current user first to avoid session conflict
-      return auth.signOut()
-        .then(() => auth.signInWithEmailAndPassword(email, oldPass))
-        .then(userCredential => userCredential.user.updatePassword(newPass))
-        .then(() => db.ref('members/' + id + '/password').set(newPass));
+      return db.ref('members/' + id + '/password').set(p1);
     })
     .then(() => {
       alert(`Password for ${id} updated successfully!`);
@@ -685,9 +608,7 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       document.getElementById('resetStatusMsg').innerText = '';
       closeModals();
     })
-    .catch(err => {
-      alert(err.message);
-    });
+    .catch(err => alert(err.message));
 });
 
 // ------------------- WEEKLY TAB -------------------
@@ -890,12 +811,11 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       })
       .catch(err => alert("Global reset failed: " + err.message));
   } else if (pendingActionType === 'LOGOUT') {
-    auth.signOut().then(() => {
-      setViewerMode();
-      closeModals();
-      resetPendingAction();
-      setStatus("Logged out. Switched to Viewer Mode.");
-    });
+    localStorage.removeItem('activeUserId');
+    setViewerMode();
+    closeModals();
+    resetPendingAction();
+    setStatus("Logged out. Switched to Viewer Mode.");
   }
 });
 
@@ -909,6 +829,7 @@ function renderMembers(filterQuery = '') {
   const container = document.getElementById('membersListContainer');
   if (!container) return;
 
+  // If not logged in, do not show members
   if (activeUserRole === "viewer") {
     container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
       Please log in to view members.
@@ -946,12 +867,14 @@ function createMemberCardHTML(m) {
   const lPaid = parseFloat(m.loanPaid) || 0;
   const lBal = Math.max(0, lAmt - lPaid);
 
+  // Privacy: editors see everything; normal members see own full details, others masked/hidden
   const isOwnProfile = (activeUserId === m.id);
   const canSeeFullDetails = isEditor || isOwnProfile;
   
   const displayId = canSeeFullDetails ? m.id : maskID(m.id);
   const displayPhone = canSeeFullDetails ? (m.phone || 'N/A') : 'Hidden';
 
+  // Action buttons only for editors
   const actionButtons = isEditor ? `
     <div class="card-actions">
       <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
