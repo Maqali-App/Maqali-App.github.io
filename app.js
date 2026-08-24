@@ -1,4 +1,4 @@
-// APP.JS – Full version with self-healing editor records, direct member fetch, swipe navigation, privacy, logout confirmation
+// APP.JS – Full version with database-only password, anonymous read access, swipe navigation, privacy, logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -21,7 +21,7 @@ auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err)
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer";
+let activeUserRole = "viewer";  // "viewer", "member", or "editor"
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
@@ -29,7 +29,7 @@ let pendingTargetId = null;
 let membersListener = null;
 
 const DEFAULT_PASSWORD = "1234";
-const EMAIL_DOMAIN = "@maqali.com";
+const EMAIL_DOMAIN = "@maqali.com"; // no longer used for auth, kept for reference if needed
 
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
@@ -249,73 +249,20 @@ function hideLoginPrompt() {
   if (overlay) overlay.remove();
 }
 
-// ------------------- AUTH STATE HANDLER (self‑healing editor records) -------------------
+// ------------------- AUTH STATE HANDLER (anonymous only) -------------------
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
-    // Guest user: allow reads but no members listener
+    // Guest user: allow read access but stay in viewer mode
     detachMembersListener();
     setViewerMode();
-    return;
-  }
-  
-  if (user) {
-    // Email/password user
-    const emailPrefix = user.email.split('@')[0].toUpperCase(); // e.g., "E-001"
-
-    // Directly fetch the member record by derived ID
-    db.ref('members/' + emailPrefix).once('value')
-      .then(snap => {
-        if (snap.exists()) {
-          const member = snap.val();
-          // Update uid if missing or mismatched
-          if (!member.uid || member.uid !== user.uid) {
-            db.ref('members/' + emailPrefix + '/uid').set(user.uid);
-          }
-          if (member.isEditor) {
-            applyEditorUI(member.id);
-          } else {
-            applyMemberUI(member.id);
-          }
-          setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
-        } else {
-          // Member record missing: if it's an editor ID, create default record
-          if (emailPrefix === 'E-001' || emailPrefix === 'E-002') {
-            const defaultEditor = {
-              id: emailPrefix,
-              name: emailPrefix === 'E-001' ? 'Admin Editor' : 'Second Editor',
-              age: '',
-              phone: '',
-              familyTies: '',
-              isEditor: true,
-              email: user.email,
-              uid: user.uid,
-              password: DEFAULT_PASSWORD,
-              weeklyPayments: [],
-              loanAmount: 0,
-              loanPaid: 0
-            };
-            db.ref('members/' + emailPrefix).set(defaultEditor)
-              .then(() => {
-                applyEditorUI(emailPrefix);
-                setStatus(`Editor account created and logged in as ${emailPrefix}`);
-              });
-          } else {
-            auth.signOut();
-            setViewerMode();
-            setStatus("User not found. Please contact an editor.");
-          }
-        }
-      })
-      .catch(err => {
-        console.error("Auth fetch error:", err);
-        auth.signOut();
-        setViewerMode();
-      });
   } else {
-    // No user (signed out completely) – sign in anonymously again
-    detachMembersListener();
-    setViewerMode();
-    auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
+    // If for some reason a non-anonymous user is signed in, sign out and sign in anonymously
+    if (user) {
+      auth.signOut().then(() => auth.signInAnonymously());
+    } else {
+      // No user at all, sign in anonymously
+      auth.signInAnonymously();
+    }
   }
 });
 
@@ -560,49 +507,24 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
   if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
-  const email = `${typedId.toLowerCase()}${EMAIL_DOMAIN}`;
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
+  const memberObj = {
+    id: typedId,
+    name,
+    age: document.getElementById('age').value,
+    phone: document.getElementById('phone').value,
+    familyTies: document.getElementById('familyTies').value,
+    isEditor: isEditorRole,
+    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`, // kept for reference, not used for auth
+    uid: existingMember ? existingMember.uid : null,   // kept for potential future use
+    password,
+    weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+    loanAmount: existingMember ? existingMember.loanAmount : 0,
+    loanPaid: existingMember ? existingMember.loanPaid : 0
+  };
+
   try {
-    let uid = existingMember ? existingMember.uid : null;
-
-    if (!existingMember) {
-      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, returnSecureToken: false })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Failed to create auth user.');
-      uid = data.localId;
-    } else if (!existingMember.uid) {
-      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
-      const response = await fetch(signupUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, returnSecureToken: false })
-      });
-      const data = await response.json();
-      if (response.ok) uid = data.localId;
-      else if (data.error?.message === 'EMAIL_EXISTS') console.warn(`Auth user already exists for ${email}.`);
-    }
-
-    const memberObj = {
-      id: typedId,
-      name,
-      age: document.getElementById('age').value,
-      phone: document.getElementById('phone').value,
-      familyTies: document.getElementById('familyTies').value,
-      isEditor: isEditorRole,
-      email,
-      uid,
-      password,
-      weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-      loanAmount: existingMember ? existingMember.loanAmount : 0,
-      loanPaid: existingMember ? existingMember.loanPaid : 0
-    };
-
     await db.ref('members/' + typedId).set(memberObj);
     alert(`Member ${typedId} saved successfully!`);
     clearProfileForm();
@@ -613,9 +535,10 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   }
 });
 
-// ------------------- LOGIN / LOGOUT -------------------
+// ------------------- LOGIN / LOGOUT (database-only) -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
-  if (auth.currentUser && !auth.currentUser.isAnonymous) {
+  if (activeUserId) {
+    // Show logout confirmation modal
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
     document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
@@ -627,21 +550,52 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btnSubmitLogin').addEventListener('click', () => {
+document.getElementById('btnSubmitLogin').addEventListener('click', async () => {
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
 
-  const email = `${id.toLowerCase()}${EMAIL_DOMAIN}`;
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(() => {
-      closeModals();
-      setStatus("Login successful.");
-    })
-    .catch(err => alert("Login failed: " + err.message));
+  const member = await fetchMemberById(id);
+  if (!member) return alert("Member ID not found.");
+
+  const storedPass = member.password || DEFAULT_PASSWORD;
+  if (pass === storedPass) {
+    if (member.isEditor) {
+      applyEditorUI(member.id);
+    } else {
+      applyMemberUI(member.id);
+    }
+    closeModals();
+    setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
+  } else {
+    alert("Incorrect password.");
+  }
 });
 
-// ------------------- PASSWORD RECOVERY -------------------
+// ------------------- PASSWORD RECOVERY (database-only) -------------------
+document.getElementById('btnOpenReset').addEventListener('click', () => {
+  closeModals();
+  enableModalElements('modalReset');
+  document.getElementById('modalReset').classList.add('active');
+});
+
+document.getElementById('btnVerifyReset').addEventListener('click', () => {
+  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
+  if (!id) return alert("Please enter a Member ID.");
+  db.ref('members/' + id).once('value').then(snap => {
+    if (!snap.exists()) {
+      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
+      document.getElementById('resetFields').style.display = 'none';
+      return;
+    }
+    document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
+    document.getElementById('resetFields').style.display = 'block';
+  }).catch(err => {
+    console.error("Recovery load error:", err);
+    alert("Failed to load member. Please try again.");
+  });
+});
+
 document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   const inputPin = document.getElementById('resetMasterPin').value.trim();
@@ -656,7 +610,7 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       const actualPin = snap.val();
       if (!actualPin) throw new Error("Master PIN missing. Please set it in the database under system/masterPin.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      // 2. Update password directly in the database
+      // 2. Update password directly in database
       return db.ref('members/' + id + '/password').set(newPass);
     })
     .then(() => {
@@ -673,7 +627,8 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
     .catch(err => {
       alert(err.message);
     });
-   });
+});
+
 // ------------------- WEEKLY TAB -------------------
 async function loadWeeklyForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
@@ -880,14 +835,11 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       })
       .catch(err => alert("Global reset failed: " + err.message));
   } else if (pendingActionType === 'LOGOUT') {
-    auth.signOut().then(() => {
-      setViewerMode();
-      closeModals();
-      resetPendingAction();
-      setStatus("Logged out. Switched to Viewer Mode.");
-      // Re-authenticate as guest to allow password recovery reads
-      auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
-    });
+    // Simply clear local state; anonymous auth remains for read access
+    setViewerMode();
+    closeModals();
+    resetPendingAction();
+    setStatus("Logged out. Switched to Viewer Mode.");
   }
 });
 
