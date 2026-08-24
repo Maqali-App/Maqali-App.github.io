@@ -642,29 +642,6 @@ document.getElementById('btnSubmitLogin').addEventListener('click', () => {
 });
 
 // ------------------- PASSWORD RECOVERY -------------------
-document.getElementById('btnOpenReset').addEventListener('click', () => {
-  closeModals();
-  enableModalElements('modalReset');
-  document.getElementById('modalReset').classList.add('active');
-});
-
-document.getElementById('btnVerifyReset').addEventListener('click', () => {
-  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  if (!id) return alert("Please enter a Member ID.");
-  db.ref('members/' + id).once('value').then(snap => {
-    if (!snap.exists()) {
-      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
-      document.getElementById('resetFields').style.display = 'none';
-      return;
-    }
-    document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
-    document.getElementById('resetFields').style.display = 'block';
-  }).catch(err => {
-    console.error("Recovery load error:", err);
-    alert("Failed to load member. Please try again.");
-  });
-});
-
 document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   const inputPin = document.getElementById('resetMasterPin').value.trim();
@@ -673,25 +650,18 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
   if (!id || !inputPin) return alert("Please fill all fields.");
   if (newPass !== verPass) return alert("New passwords do not match.");
 
+  // 1. Verify Master PIN
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
-      if (!actualPin) throw new Error("Master PIN missing.");
+      if (!actualPin) throw new Error("Master PIN missing. Please set it in the database under system/masterPin.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      return db.ref('members/' + id).once('value');
-    })
-    .then(memberSnap => {
-      if (!memberSnap.exists()) throw new Error("Member ID not found.");
-      const member = memberSnap.val();
-      const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
-      const oldPass = member.password || DEFAULT_PASSWORD;
-      return auth.signOut()
-        .then(() => auth.signInWithEmailAndPassword(email, oldPass))
-        .then(userCredential => userCredential.user.updatePassword(newPass))
-        .then(() => db.ref('members/' + id + '/password').set(newPass));
+      // 2. Update password directly in the database
+      return db.ref('members/' + id + '/password').set(newPass);
     })
     .then(() => {
       alert(`Password for ${id} updated successfully!`);
+      // Clear reset form
       document.getElementById('resetIdInput').value = '';
       document.getElementById('resetMasterPin').value = '';
       document.getElementById('resetNewPass').value = '';
@@ -703,8 +673,7 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
     .catch(err => {
       alert(err.message);
     });
-});
-
+   });
 // ------------------- WEEKLY TAB -------------------
 async function loadWeeklyForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
