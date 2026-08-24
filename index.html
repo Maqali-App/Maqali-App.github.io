@@ -1,926 +1,345 @@
-// APP.JS – Full version with overlay login prompt, swipe navigation, privacy, and logout confirmation
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
-  authDomain: "maqali-app-83b95.firebaseapp.com",
-  databaseURL: "https://maqali-app-83b95-default-rtdb.firebaseio.com",
-  projectId: "maqali-app-83b95",
-  storageBucket: "maqali-app-83b95.firebasestorage.app",
-  messagingSenderId: "458036803827",
-  appId: "1:458036803827:web:a7d2f61d1256fdfca21f86",
-  measurementId: "G-RE6DXYQ0RL"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-firebase.auth().signInAnonymously()
-  .catch(err => console.warn("Anonymous auth failed:", err));
-
-let members = [];
-let isEditor = false;
-let activeUserId = "";
-let activeUserRole = "viewer";  // "viewer", "member", or "editor"
-let isEditingExistingMember = false;
-
-let pendingActionType = null;
-let pendingTargetId = null;
-
-const DEFAULT_PASSWORD = "1234";
-
-function getHighestIDNumber(memberList, prefix) {
-  let maxNum = 0;
-  memberList.forEach(member => {
-    if (typeof member.id === 'string' && member.id.startsWith(prefix)) {
-      const numPart = parseInt(member.id.replace(prefix, ''), 10);
-      if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAQALI FAMILY MEETING</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background-color: #000040; color: #fff; padding: 10px; padding-bottom: 70px; }
+    
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .role-badge { font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: #333366; }
+    .login-btn { background: #007AFF; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
+    
+    .status-banner { background: #111155; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #333; text-align: center; color: #ffd700; font-size: 11px; font-weight: bold; min-height: 32px; display: flex; align-items: center; justify-content: center; }
+    .card { background: #000028; border-radius: 8px; padding: 12px; border: 1px solid #333; }
+    
+    .field-row { display: flex; align-items: center; margin-bottom: 8px; }
+    .field-label { width: 90px; font-size: 11px; font-weight: bold; }
+    .field-input { flex: 1; background: #333366; color: #fff; border: none; border-radius: 4px; padding: 6px 8px; height: 34px; font-size: 12px; }
+    .field-input:read-only { background: #222244; color: #aaa; cursor: not-allowed; }
+    
+    .shared-input-wrapper { flex: 1; display: flex; height: 34px; }
+    .id-input-part { flex: 1; background: #333366; color: #fff; border: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px; padding: 6px 8px; font-size: 12px; }
+    .id-input-part:read-only { background: #222244; color: #ffd700; font-weight: bold; cursor: not-allowed; }
+    .load-btn-part { width: 60px; background: #007AFF; color: #fff; border: none; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; }
+    
+    .btn-row { display: flex; gap: 8px; margin: 10px 0; }
+    .action-btn { flex: 1; background: #007AFF; color: #fff; border: none; border-radius: 4px; height: 34px; font-weight: bold; font-size: 11px; cursor: pointer; }
+    .save-btn { background: #28a745; }
+    
+    .summary-box { background: #000015; border-radius: 6px; padding: 10px; margin-top: 8px; }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
+    .summary-val { font-weight: bold; }
+    
+    .grid-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: space-between; margin-top: 10px; }
+    .grid-cell { width: 18%; display: flex; flex-direction: column; align-items: center; margin-bottom: 6px; }
+    .grid-label { font-size: 9px; color: #aaa; margin-bottom: 2px; }
+    .grid-input { width: 100%; text-align: center; height: 28px; font-size: 10px; background: #333366; color: #fff; border: 1px solid #444; border-radius: 4px; }
+    
+    .gen-box { background: #000010; border-radius: 4px; padding: 10px; margin-bottom: 8px; text-align: center; }
+    .gen-label { font-size: 10px; color: #aaa; font-weight: bold; margin-bottom: 2px; }
+    .gen-val { font-size: 16px; font-weight: bold; }
+    
+    .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #00001a; border-top: 1px solid #333; height: 55px; z-index: 999; }
+    .tab-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; gap: 3px; }
+    .tab-item svg { width: 20px; height: 20px; fill: currentColor; }
+    .tab-item.active { color: #007AFF; border-top: 2px solid #007AFF; background: #000030; }
+    
+    /* Sliding tab container */
+    .tab-container {
+      position: relative;
+      overflow: hidden;
+      height: calc(100vh - 145px); /* topbar + status + bottom tab bar */
+      margin-bottom: 55px;
     }
-  });
-  return maxNum;
-}
-
-function formatID(prefix, number) {
-  return prefix + String(number).padStart(3, '0');
-}
-
-function setStatus(msg) {
-  document.getElementById('statusBanner').innerText = "STATUS: " + msg;
-}
-
-function maskID(id) {
-  if (!id) return 'N/A';
-  const prefix = id.charAt(0);
-  return prefix + '-***';
-}
-
-// ------------------- UI STATE MANAGEMENT -------------------
-function setViewerMode() {
-  isEditor = false;
-  activeUserId = "";
-  activeUserRole = "viewer";
-  document.getElementById('roleBadge').innerText = "Role: Viewer (Not Logged In)";
-  document.getElementById('roleBadge').style.background = "#333366";
-  document.getElementById('loginBtn').innerText = "Member Login";
-  
-  updateTabsVisibility();
-  lockAllTabs();
-  showLoginPrompt();
-  
-  setStatus("Please log in to access your data.");
-}
-
-function applyEditorUI(editorId) {
-  isEditor = true;
-  activeUserId = editorId;
-  activeUserRole = "editor";
-  document.getElementById('roleBadge').innerText = `Role: Editor (${editorId})`;
-  document.getElementById('roleBadge').style.background = "#28a745";
-  document.getElementById('loginBtn').innerText = "Logout";
-  
-  updateTabsVisibility();
-  unlockAllTabs();
-  hideLoginPrompt();
-}
-
-function applyMemberUI(memberId) {
-  isEditor = false;
-  activeUserId = memberId;
-  activeUserRole = "member";
-  document.getElementById('roleBadge').innerText = `Role: Member (${memberId})`;
-  document.getElementById('roleBadge').style.background = "#333366";
-  document.getElementById('loginBtn').innerText = "Logout";
-  
-  updateTabsVisibility();
-  unlockAllTabs();
-  hideLoginPrompt();
-
-  // Lock all ID inputs to this member's ID
-  ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
-    const el = document.getElementById(fid);
-    el.value = memberId;
-    el.readOnly = true;
-  });
-
-  // Auto-load member's data
-  loadProfileForMember(memberId);
-  loadWeeklyForMember(memberId);
-  loadLoansForMember(memberId);
-  renderMembers();
-}
-
-function updateTabsVisibility() {
-  const tabItems = document.querySelectorAll('.tab-item');
-  
-  if (activeUserRole === "viewer") {
-    // Not logged in: show only Profile tab
-    tabItems.forEach(tab => {
-      const tabName = tab.getAttribute('data-tab');
-      if (tabName === 'Profile') {
-        tab.style.display = "flex";
-      } else {
-        tab.style.display = "none";
-      }
-    });
-  } else {
-    // Logged in as either member or editor: show all tabs
-    tabItems.forEach(tab => {
-      tab.style.display = "flex";
-    });
-  }
-}
-
-function lockAllTabs() {
-  document.querySelectorAll('input, select, button').forEach(el => {
-    if (
-      el.id !== 'loginBtn' &&
-      !el.closest('.modal-overlay') &&
-      !el.classList.contains('btn-close-modal')
-    ) {
-      el.disabled = true;
-    }
-  });
-}
-
-function unlockAllTabs() {
-  document.querySelectorAll('input, select, button').forEach(el => {
-    if (!el.closest('.modal-overlay')) {
-      el.disabled = false;
-    }
-  });
-
-  if (activeUserRole === "member") {
-    ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
-      const field = document.getElementById(fid);
-      if (field) {
-        field.readOnly = true;
-        field.disabled = false;
-      }
-    });
-  }
-}
-
-function enableModalElements(modalId) {
-  document.querySelectorAll(`#${modalId} input, #${modalId} select, #${modalId} button`).forEach(el => {
-    el.disabled = false;
-  });
-}
-
-// ------------------- LOGIN PROMPT OVERLAY -------------------
-function showLoginPrompt() {
-  // Remove any existing overlay
-  hideLoginPrompt();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'loginPromptOverlay';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    padding: 15px;
-  `;
-
-  overlay.innerHTML = `
-    <div style="
-      background: #000028;
-      border: 1px solid #007AFF;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      max-width: 340px;
+    .tab-content {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      color: #ffd700;
-      font-size: 14px;
-      font-weight: bold;
-    ">
-      <div style="margin-bottom: 10px;">🔒 ACCESS RESTRICTED</div>
-      <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
-        Please log in to view your data.<br>
-        Contact an editor if you don't have an account.
-      </div>
-      <button id="loginPromptBtn" style="
-        background: #007AFF;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        padding: 10px 20px;
-        font-size: 12px;
-        font-weight: bold;
-        cursor: pointer;
-      ">
-        Login Now
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  document.getElementById('loginPromptBtn').addEventListener('click', () => {
-    enableModalElements('modalLogin');
-    document.getElementById('modalLogin').classList.add('active');
-  });
-}
-
-function hideLoginPrompt() {
-  const overlay = document.getElementById('loginPromptOverlay');
-  if (overlay) overlay.remove();
-}
-
-function restoreSession() {
-  const savedId = localStorage.getItem('activeUserId');
-  if (savedId) {
-    const found = members.find(m => m.id === savedId);
-    if (found) {
-      if (found.isEditor) {
-        applyEditorUI(savedId);
-      } else {
-        applyMemberUI(savedId);
-      }
-      setStatus(`Session restored as ${found.isEditor ? 'Editor' : 'Member'} ${savedId}`);
-      return;
-    } else {
-      localStorage.removeItem('activeUserId');
+      height: 100%;
+      overflow-y: auto;
+      padding: 10px;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
     }
-  }
-  setViewerMode();
-}
-
-// ------------------- DATA HELPERS -------------------
-function getPaymentsArray(raw) {
-  if (!raw) return new Array(50).fill('');
-  if (Array.isArray(raw)) return raw;
-  const arr = new Array(50).fill('');
-  Object.keys(raw).forEach(k => {
-    const idx = parseInt(k, 10);
-    if (!isNaN(idx) && idx < 50) arr[idx] = raw[k];
-  });
-  return arr;
-}
-
-function clearProfileForm() {
-  const idInput = document.getElementById('memberId');
-  idInput.value = '';
-  idInput.readOnly = false;
-  isEditingExistingMember = false;
-
-  document.getElementById('name').value = '';
-  document.getElementById('age').value = '';
-  document.getElementById('phone').value = '';
-  document.getElementById('familyTies').value = '';
-  document.getElementById('roleType').value = 'Member';
-  document.getElementById('password').value = '';
-  document.getElementById('profWeeksPaid').innerText = '0';
-  document.getElementById('profAmountSaved').innerText = '₦0';
-  document.getElementById('profLoanAmount').innerText = '₦0';
-  document.getElementById('profLoanPaid').innerText = '₦0';
-  document.getElementById('profLoanBalance').innerText = '₦0';
-  document.getElementById('profNetBalance').innerText = '₦0';
-}
-
-// ------------------- BUILD WEEKLY GRID -------------------
-const grid = document.getElementById('grid50');
-for (let i = 0; i < 50; i++) {
-  grid.innerHTML += `
-    <div class="grid-cell">
-      <span class="grid-label">Wk ${i + 1}</span>
-      <input type="number" class="grid-input" id="wk_${i}">
-    </div>`;
-}
-
-// ------------------- FIREBASE LISTENERS -------------------
-db.ref('.info/connected').on('value', (snap) => {
-  if (snap.val() === true) setStatus("Connected to Cloud Database.");
-  else setStatus("Connecting / Disconnected from Cloud Server...");
-});
-
-db.ref('members').on('value', (snapshot) => {
-  const data = snapshot.val();
-  members = data ? Object.values(data) : [];
-  renderMembers();
-  renderSummary();
-  if (!window._sessionRestored) {
-    restoreSession();
-    window._sessionRestored = true;
-  }
-}, (error) => {
-  setStatus("Database Error: " + error.message);
-});
-
-// ------------------- SLIDING TABS (Click) -------------------
-document.querySelectorAll('.tab-item').forEach(item => {
-  item.addEventListener('click', function() {
-    if (activeUserRole === "viewer" && this.getAttribute('data-tab') !== 'Profile') {
-      alert("Please log in to access this section.");
-      return;
+    .tab-content.active {
+      transform: translateX(0);
     }
     
-    switchToTab(this);
-  });
-});
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 15px; }
+    .modal-overlay.active { display: flex !important; }
+    .modal-box { background: #000028; border: 1px solid #007AFF; border-radius: 8px; width: 100%; max-width: 340px; padding: 16px; }
+    .modal-title { font-size: 13px; font-weight: bold; color: #ffd700; margin-bottom: 12px; text-align: center; }
+    .modal-subtitle { font-size: 11px; color: #aaa; margin-bottom: 10px; text-align: center; }
+    .link-btn { background: none; border: none; color: #007AFF; font-size: 11px; text-decoration: underline; cursor: pointer; margin-top: 8px; display: block; width: 100%; text-align: center; }
+    
+    .member-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 11px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .member-info { flex: 1; }
+    .member-header { font-weight: bold; color: #ffd700; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+    
+    .card-actions { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-left: 10px; }
+    .icon-action-btn { background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 4px; }
+    .delete-btn { color: #ff6b6b; }
+    .delete-btn:hover { background: rgba(255,107,107,0.2); }
+    .reset-btn { color: #ffd700; }
+    .reset-btn:hover { background: rgba(255,215,0,0.2); }
+    .icon-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-function switchToTab(tabItem) {
-  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  tabItem.classList.add('active');
-  const tabName = tabItem.getAttribute('data-tab');
-  document.getElementById('tab-' + tabName).classList.add('active');
-}
+    .name-display-tag { font-size: 11px; color: #ffd700; font-weight: bold; margin-left: 90px; margin-bottom: 8px; min-height: 15px; }
+  </style>
 
-// ------------------- SWIPE NAVIGATION -------------------
-const tabContainer = document.getElementById('tabContainer');
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+</head>
+<body>
 
-tabContainer.addEventListener('touchstart', (e) => {
-  touchStartX = e.changedTouches[0].screenX;
-  touchStartY = e.changedTouches[0].screenY;
-}, { passive: true });
+  <div class="top-bar">
+    <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
+    <button class="login-btn" id="loginBtn">Member Login</button>
+  </div>
 
-tabContainer.addEventListener('touchend', (e) => {
-  touchEndX = e.changedTouches[0].screenX;
-  touchEndY = e.changedTouches[0].screenY;
-  handleSwipe();
-}, { passive: true });
+  <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
 
-function handleSwipe() {
-  const deltaX = touchEndX - touchStartX;
-  const deltaY = touchEndY - touchStartY;
-
-  // Only consider horizontal swipe if it's significantly larger than vertical
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-    const visibleTabs = getVisibleTabs();
-    if (visibleTabs.length === 0) return;
-
-    const currentIndex = getCurrentTabIndex(visibleTabs);
-    if (currentIndex === -1) return;
-
-    let newIndex;
-    if (deltaX < 0) {
-      // Swipe left -> next tab
-      newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
-    } else {
-      // Swipe right -> previous tab
-      newIndex = Math.max(currentIndex - 1, 0);
-    }
-
-    if (newIndex !== currentIndex) {
-      switchToTab(visibleTabs[newIndex]);
-    }
-  }
-}
-
-function getVisibleTabs() {
-  return Array.from(document.querySelectorAll('.tab-item')).filter(tab => {
-    return tab.style.display !== 'none';
-  });
-}
-
-function getCurrentTabIndex(visibleTabs) {
-  const activeTab = document.querySelector('.tab-item.active');
-  return visibleTabs.indexOf(activeTab);
-}
-
-function closeModals() {
-  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-}
-document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
-
-// ------------------- PROFILE TAB -------------------
-document.getElementById('btnNewID').addEventListener('click', () => {
-  if (!isEditor) return alert("Action Denied: Only Editors can create new IDs.");
-  const role = document.getElementById('roleType').value;
-  clearProfileForm();
-  const idInput = document.getElementById('memberId');
-  
-  if (role === 'Editor') {
-    const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
-    const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
-    if (!hasE001) {
-      idInput.value = 'E-001';
-    } else if (!hasE002) {
-      idInput.value = 'E-002';
-    } else {
-      alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
-      return;
-    }
-  } else {
-    const maxNum = getHighestIDNumber(members, 'M-');
-    idInput.value = formatID('M-', maxNum + 1);
-  }
-
-  idInput.readOnly = true;
-  isEditingExistingMember = false;
-  setStatus("Generated New ID: " + idInput.value);
-});
-
-function loadProfileForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    alert(`Member ID '${id}' not found.`);
-    return;
-  }
-
-  document.getElementById('name').value = m.name || '';
-  document.getElementById('age').value = m.age || '';
-  document.getElementById('phone').value = m.phone || '';
-  document.getElementById('familyTies').value = m.familyTies || '';
-  document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
-  document.getElementById('password').value = '';
-
-  const payments = getPaymentsArray(m.weeklyPayments);
-  const wPaid = payments.filter(val => val !== "" && val !== null && !isNaN(val)).length;
-  const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-  const lAmt = parseFloat(m.loanAmount) || 0;
-  const lPaid = parseFloat(m.loanPaid) || 0;
-  const lBal = Math.max(0, lAmt - lPaid);
-  const netBal = amountSaved - lBal;
-
-  document.getElementById('profWeeksPaid').innerText = wPaid;
-  document.getElementById('profAmountSaved').innerText = `₦${amountSaved.toLocaleString()}`;
-  document.getElementById('profLoanAmount').innerText = `₦${lAmt.toLocaleString()}`;
-  document.getElementById('profLoanPaid').innerText = `₦${lPaid.toLocaleString()}`;
-  document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
-  document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
-
-  document.getElementById('memberId').value = id;
-  document.getElementById('memberId').readOnly = true;
-  isEditingExistingMember = true;
-  setStatus(`Loaded Profile for ${id}`);
-}
-
-document.getElementById('btnLoadProfile').addEventListener('click', () => {
-  if (activeUserRole === "member") {
-    loadProfileForMember(activeUserId);
-    return;
-  }
-  const inputId = document.getElementById('memberId').value.trim().toUpperCase();
-  if (!inputId) return alert("Please enter a Member ID to load!");
-  loadProfileForMember(inputId);
-});
-
-document.getElementById('btnSaveMember').addEventListener('click', async () => {
-  if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
-
-  const typedId = document.getElementById('memberId').value.trim().toUpperCase();
-  const name = document.getElementById('name').value.trim();
-
-  if (!typedId || !name) return alert("Please enter both Member ID and Name.");
-  if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) 
-    return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-'.");
-
-  if (typedId.startsWith('E-') && typedId !== 'E-001' && typedId !== 'E-002') 
-    return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
-
-  const existingMember = members.find(m => m.id && m.id.toUpperCase() === typedId);
-  if (!existingMember) {
-    const prefix = typedId.startsWith('E-') ? 'E-' : 'M-';
-    const maxNum = getHighestIDNumber(members, prefix);
-    const expectedNextId = formatID(prefix, maxNum + 1);
-    if (typedId !== expectedNextId) {
-      alert(`Invalid Sequence! Next required ID is: ${expectedNextId}`);
-      return;
-    }
-  }
-
-  const isEditorRole = document.getElementById('roleType').value === 'Editor';
-  if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
-  if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
-
-  let existing = existingMember || {};
-  const passwordInput = document.getElementById('password').value.trim();
-  const password = passwordInput || existing.password || DEFAULT_PASSWORD;
-
-  const memberObj = {
-    id: typedId,
-    name,
-    age: document.getElementById('age').value,
-    phone: document.getElementById('phone').value,
-    familyTies: document.getElementById('familyTies').value,
-    isEditor: isEditorRole,
-    password,
-    weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
-    loanAmount: existing.loanAmount || 0,
-    loanPaid: existing.loanPaid || 0
-  };
-
-  try {
-    await db.ref('members/' + typedId).set(memberObj);
-    alert(`Member ${typedId} saved successfully!`);
-    clearProfileForm();
-    setStatus(`Member ${typedId} saved.`);
-  } catch (error) {
-    console.error("Error saving member:", error);
-    alert("Failed to save member: " + error.message);
-  }
-});
-
-// ------------------- LOGIN / LOGOUT -------------------
-document.getElementById('loginBtn').addEventListener('click', () => {
-  if (activeUserId) {
-    // Show logout confirmation modal
-    pendingActionType = 'LOGOUT';
-    document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
-    document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
-    enableModalElements('modalActionConfirm');
-    document.getElementById('modalActionConfirm').classList.add('active');
-  } else {
-    enableModalElements('modalLogin');
-    document.getElementById('modalLogin').classList.add('active');
-  }
-});
-
-document.getElementById('btnSubmitLogin').addEventListener('click', () => {
-  const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
-  const pass = document.getElementById('loginPassInput').value;
-  if (!id) return alert("Please enter your Member ID.");
-
-  db.ref('members/' + id).once('value').then(snap => {
-    const member = snap.val();
-    if (!member) return alert("Member ID not found.");
-    const storedPass = member.password || DEFAULT_PASSWORD;
-    if (storedPass === pass) {
-      localStorage.setItem('activeUserId', id);
-      if (member.isEditor) applyEditorUI(id);
-      else applyMemberUI(id);
-      closeModals();
-      setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${id}`);
-    } else {
-      alert("Incorrect Password!");
-    }
-  }).catch(err => alert("Login error: " + err.message));
-});
-
-// ------------------- PASSWORD RECOVERY -------------------
-document.getElementById('btnOpenReset').addEventListener('click', () => {
-  closeModals();
-  enableModalElements('modalReset');
-  document.getElementById('modalReset').classList.add('active');
-});
-
-document.getElementById('btnVerifyReset').addEventListener('click', () => {
-  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  if (!id) return alert("Please enter a Member ID.");
-  db.ref('members/' + id).once('value').then(snap => {
-    if (!snap.exists()) {
-      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
-      document.getElementById('resetFields').style.display = 'none';
-      return;
-    }
-    document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
-    document.getElementById('resetFields').style.display = 'block';
-  });
-});
-
-document.getElementById('btnSubmitReset').addEventListener('click', () => {
-  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  const inputPin = document.getElementById('resetMasterPin').value.trim();
-  const p1 = document.getElementById('resetNewPass').value;
-  const p2 = document.getElementById('resetVerPass').value;
-  if (!id || !inputPin) return alert("Please fill all fields.");
-  if (p1 !== p2) return alert("New passwords do not match.");
-
-  db.ref('system/masterPin').once('value')
-    .then(snap => {
-      const actualPin = snap.val();
-      if (!actualPin) throw new Error("masterPin missing in database.");
-      if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      return db.ref('members/' + id).once('value');
-    })
-    .then(memberSnap => {
-      if (!memberSnap.exists()) throw new Error("Member ID not found.");
-      return db.ref('members/' + id + '/password').set(p1);
-    })
-    .then(() => {
-      alert(`Password for ${id} updated successfully!`);
-      document.getElementById('resetIdInput').value = '';
-      document.getElementById('resetMasterPin').value = '';
-      document.getElementById('resetNewPass').value = '';
-      document.getElementById('resetVerPass').value = '';
-      document.getElementById('resetFields').style.display = 'none';
-      document.getElementById('resetStatusMsg').innerText = '';
-      closeModals();
-    })
-    .catch(err => alert(err.message));
-});
-
-// ------------------- WEEKLY TAB -------------------
-function loadWeeklyForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
-  document.getElementById('weeklyMemberId').value = id;
-  document.getElementById('weeklyMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
-  const payments = getPaymentsArray(m.weeklyPayments);
-  for (let i = 0; i < 50; i++) {
-    document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
-  }
-  setStatus(`Weekly grid loaded for ${id} (${m.name})`);
-}
-
-document.getElementById('btnLoadWeekly').addEventListener('click', () => {
-  if (activeUserRole === "member") {
-    loadWeeklyForMember(activeUserId);
-    return;
-  }
-  const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
-  if (!id) return alert("Please enter a Member ID.");
-  loadWeeklyForMember(id);
-});
-
-document.getElementById('btnSavePayments').addEventListener('click', () => {
-  if (!isEditor) return alert("Editor permission required.");
-  const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
-  if (!id) return alert("Enter Member ID first.");
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
-
-  const payments = [];
-  for (let i = 0; i < 50; i++) {
-    payments.push(document.getElementById(`wk_${i}`).value);
-  }
-  db.ref(`members/${id}/weeklyPayments`).set(payments)
-    .then(() => {
-      alert("Weekly payments saved!");
-      setStatus(`Weekly payments saved for ${id}`);
-    })
-    .catch(err => alert("Save failed: " + err.message));
-});
-
-// ------------------- LOANS TAB -------------------
-function loadLoansForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
-  document.getElementById('loansMemberId').value = id;
-  document.getElementById('loansMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
-  const lAmt = parseFloat(m.loanAmount) || 0;
-  const lPaid = parseFloat(m.loanPaid) || 0;
-  const lBal = Math.max(0, lAmt - lPaid);
-  document.getElementById('loanTotalVal').innerText = `₦${lAmt.toLocaleString()}`;
-  document.getElementById('loanPaidVal').innerText = `₦${lPaid.toLocaleString()}`;
-  document.getElementById('loanBalVal').innerText = `₦${lBal.toLocaleString()}`;
-  setStatus(`Loan details loaded for ${id} (${m.name})`);
-}
-
-document.getElementById('btnLoadLoans').addEventListener('click', () => {
-  if (activeUserRole === "member") {
-    loadLoansForMember(activeUserId);
-    return;
-  }
-  const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-  if (!id) return alert("Please enter a Member ID.");
-  loadLoansForMember(id);
-});
-
-document.getElementById('btnAddLoan').addEventListener('click', () => {
-  if (!isEditor) return alert("Editor permission required.");
-  const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-  const amt = parseFloat(document.getElementById('newLoanInput').value) || 0;
-  if (!id || amt <= 0) return alert("Provide valid ID and loan amount.");
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
-  const current = parseFloat(m.loanAmount) || 0;
-  db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
-    alert("Loan added!");
-    document.getElementById('newLoanInput').value = '';
-    setStatus(`Added ₦${amt} loan to ${id}`);
-  });
-});
-
-document.getElementById('btnPayLoan').addEventListener('click', () => {
-  if (!isEditor) return alert("Editor permission required.");
-  const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
-  const amt = parseFloat(document.getElementById('payLoanInput').value) || 0;
-  if (!id || amt <= 0) return alert("Provide valid ID and payment amount.");
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
-  const current = parseFloat(m.loanPaid) || 0;
-  db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
-    alert("Repayment recorded!");
-    document.getElementById('payLoanInput').value = '';
-    setStatus(`Recorded ₦${amt} repayment for ${id}`);
-  });
-});
-
-// ------------------- MEMBERS LIST (with privacy) -------------------
-document.getElementById('btnSearchMember').addEventListener('click', () => {
-  const query = document.getElementById('searchMemberId').value.trim();
-  renderMembers(query);
-});
-
-function initiateDeleteMember(id) {
-  if (!isEditor) return alert("Action Denied: Only Editors can delete members.");
-  pendingActionType = 'DELETE';
-  pendingTargetId = id;
-  document.getElementById('securityPinInput').value = '';
-  document.getElementById('securityPinSubTitle').innerText = `Enter Admin PIN to delete member ${id}`;
-  document.getElementById('modalSecurityPin').classList.add('active');
-}
-
-function initiateResetMember(id) {
-  if (!isEditor) return alert("Action Denied: Only Editors can reset financial records.");
-  pendingActionType = 'RESET_SINGLE';
-  pendingTargetId = id;
-  document.getElementById('securityPinInput').value = '';
-  document.getElementById('securityPinSubTitle').innerText = `Enter Admin PIN to reset financial records for member ${id}`;
-  document.getElementById('modalSecurityPin').classList.add('active');
-}
-
-document.getElementById('btnGeneralReset').addEventListener('click', () => {
-  if (!isEditor) return alert("Action Denied: Only Editors can reset financial records.");
-  pendingActionType = 'RESET_ALL';
-  pendingTargetId = null;
-  document.getElementById('securityPinInput').value = '';
-  document.getElementById('securityPinSubTitle').innerText = "Enter Admin PIN to reset financial records for ALL members";
-  document.getElementById('modalSecurityPin').classList.add('active');
-});
-
-document.getElementById('btnVerifySecurityPin').addEventListener('click', () => {
-  const inputPin = document.getElementById('securityPinInput').value.trim();
-  if (!inputPin) return alert("Please enter Admin Security PIN.");
-  db.ref('system/masterPin').once('value').then(snap => {
-    const actualPin = snap.val();
-    if (!actualPin) throw new Error("masterPin missing in database.");
-    if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-    closeModals();
-
-    if (pendingActionType === 'DELETE') {
-      const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
-      const name = m ? m.name : pendingTargetId;
-      document.getElementById('actionConfirmTitle').innerText = "CONFIRM DELETION";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to delete member ${name} (${pendingTargetId})?`;
-    } else if (pendingActionType === 'RESET_SINGLE') {
-      const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
-      const name = m ? m.name : pendingTargetId;
-      document.getElementById('actionConfirmTitle').innerText = "CONFIRM MEMBER RESET";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to reset financial records for ${name} (${pendingTargetId})?`;
-    } else if (pendingActionType === 'RESET_ALL') {
-      document.getElementById('actionConfirmTitle').innerText = "CONFIRM RESET ALL MEMBERS";
-      document.getElementById('actionConfirmMsg').innerText = "DANGER: This will reset all financial records for ALL members. Continue?";
-    }
-    document.getElementById('modalActionConfirm').classList.add('active');
-  }).catch(err => alert(err.message));
-});
-
-document.getElementById('btnExecuteAction').addEventListener('click', () => {
-  if (pendingActionType === 'DELETE') {
-    if (!pendingTargetId) return;
-    db.ref('members/' + pendingTargetId).remove()
-      .then(() => {
-        alert(`Member ${pendingTargetId} deleted.`);
-        setStatus(`Member ${pendingTargetId} deleted.`);
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Delete failed: " + err.message));
-  } else if (pendingActionType === 'RESET_SINGLE') {
-    if (!pendingTargetId) return;
-    const updates = {};
-    updates[`members/${pendingTargetId}/weeklyPayments`] = null;
-    updates[`members/${pendingTargetId}/loanAmount`] = 0;
-    updates[`members/${pendingTargetId}/loanPaid`] = 0;
-    db.ref().update(updates)
-      .then(() => {
-        alert(`Financial records for ${pendingTargetId} reset.`);
-        setStatus(`Financial records for ${pendingTargetId} reset.`);
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Reset failed: " + err.message));
-  } else if (pendingActionType === 'RESET_ALL') {
-    const updates = {};
-    members.forEach(m => {
-      if (m.id) {
-        updates[`${m.id}/weeklyPayments`] = null;
-        updates[`${m.id}/loanAmount`] = 0;
-        updates[`${m.id}/loanPaid`] = 0;
-      }
-    });
-    db.ref('members').update(updates)
-      .then(() => {
-        alert("All financial records reset.");
-        setStatus("All members' financial records reset.");
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Global reset failed: " + err.message));
-  } else if (pendingActionType === 'LOGOUT') {
-    localStorage.removeItem('activeUserId');
-    setViewerMode();
-    closeModals();
-    resetPendingAction();
-    setStatus("Logged out. Switched to Viewer Mode.");
-  }
-});
-
-function resetPendingAction() {
-  pendingActionType = null;
-  pendingTargetId = null;
-}
-
-// ------------------- RENDER MEMBERS & SUMMARY -------------------
-function renderMembers(filterQuery = '') {
-  const container = document.getElementById('membersListContainer');
-  if (!container) return;
-
-  // If not logged in, do not show members
-  if (activeUserRole === "viewer") {
-    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
-      Please log in to view members.
-    </div>`;
-    return;
-  }
-
-  let listToRender = members;
-  if (filterQuery) {
-    const q = filterQuery.trim().toUpperCase();
-    listToRender = members.filter(m => 
-      (m.id && m.id.toUpperCase().includes(q)) || 
-      (m.name && m.name.toUpperCase().includes(q))
-    );
-  }
-
-  if (listToRender.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
-      ${filterQuery ? `No members found matching "${filterQuery}".` : 'No members recorded.'}
-    </div>`;
-    return;
-  }
-
-  let html = '';
-  listToRender.forEach(m => {
-    html += createMemberCardHTML(m);
-  });
-  container.innerHTML = html;
-}
-
-function createMemberCardHTML(m) {
-  const payments = getPaymentsArray(m.weeklyPayments);
-  const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-  const lAmt = parseFloat(m.loanAmount) || 0;
-  const lPaid = parseFloat(m.loanPaid) || 0;
-  const lBal = Math.max(0, lAmt - lPaid);
-
-  // Privacy: editors see everything; normal members see own full details, others masked/hidden
-  const isOwnProfile = (activeUserId === m.id);
-  const canSeeFullDetails = isEditor || isOwnProfile;
-  
-  const displayId = canSeeFullDetails ? m.id : maskID(m.id);
-  const displayPhone = canSeeFullDetails ? (m.phone || 'N/A') : 'Hidden';
-
-  // Action buttons only for editors
-  const actionButtons = isEditor ? `
-    <div class="card-actions">
-      <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
-        <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-      </button>
-      <button class="icon-action-btn reset-btn" onclick="initiateResetMember('${m.id}')" title="Reset Member Financials">
-        <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-8z"/></svg>
-      </button>
-    </div>` : '';
-
-  return `
-    <div class="member-card">
-      <div class="member-info">
-        <div class="member-header">
-          <span>${m.name || 'Unnamed'} (${displayId})</span>
-          <span style="color:${m.isEditor ? '#28a745' : '#888'}; font-size: 10px;">${m.isEditor ? 'Editor' : 'Member'}</span>
+  <!-- Wrap all tab contents inside a sliding container -->
+  <div class="tab-container" id="tabContainer">
+    <!-- TAB 1: PROFILE -->
+    <div id="tab-Profile" class="tab-content active">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
+            <button class="load-btn-part" id="btnLoadProfile">Load</button>
+          </div>
         </div>
-        <div>Phone: ${displayPhone} | Ties: ${m.familyTies || 'N/A'}</div>
-        <div style="margin-top:4px;">
-          Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
-          Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
+        
+        <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
+        <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
+        <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
+        <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
+        <div class="field-row">
+          <span class="field-label">Role Type</span>
+          <select id="roleType" class="field-input">
+            <option value="Member">Normal Member (M-)</option>
+            <option value="Editor">Editor (E-)</option>
+          </select>
+        </div>
+        <!-- New password field for member creation/editing -->
+        <div class="field-row">
+          <span class="field-label">Password</span>
+          <input type="password" id="password" class="field-input" placeholder="Leave blank for default 1234">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn" id="btnNewID">New ID</button>
+          <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
+          <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Amount:</span><span id="profLoanAmount" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Paid:</span><span id="profLoanPaid" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Loan Balance:</span><span id="profLoanBalance" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
+          <div class="summary-row"><span>Net Balance:</span><span id="profNetBalance" class="summary-val" style="color: #51cf66;">₦0</span></div>
         </div>
       </div>
-      ${actionButtons}
-    </div>`;
-}
+    </div>
 
-function renderSummary() {
-  let totalSaved = 0;
-  let totalLoans = 0;
-  let totalRepaid = 0;
+    <!-- TAB 2: WEEKLY -->
+    <div id="tab-Weekly" class="tab-content">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="weeklyMemberId" class="id-input-part" placeholder="M-001">
+            <button class="load-btn-part" id="btnLoadWeekly">Load</button>
+          </div>
+        </div>
+        <div id="weeklyMemberName" class="name-display-tag"></div>
 
-  members.forEach(m => {
-    const payments = getPaymentsArray(m.weeklyPayments);
-    totalSaved += payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-    totalLoans += parseFloat(m.loanAmount) || 0;
-    totalRepaid += parseFloat(m.loanPaid) || 0;
-  });
+        <div class="grid-container" id="grid50"></div>
+        <button class="action-btn save-btn" id="btnSavePayments" style="width: 100%; margin-top: 12px;">Save Payments</button>
+      </div>
+    </div>
 
-  const totalLoanBal = Math.max(0, totalLoans - totalRepaid);
-  const grandNet = totalSaved - totalLoanBal;
+    <!-- TAB 3: LOANS -->
+    <div id="tab-Loans" class="tab-content">
+      <div class="card">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="loansMemberId" class="id-input-part" placeholder="M-001">
+            <button class="load-btn-part" id="btnLoadLoans">Load</button>
+          </div>
+        </div>
+        <div id="loansMemberName" class="name-display-tag"></div>
 
-  document.getElementById('sumTotalSaved').innerText = `₦${totalSaved.toLocaleString()}`;
-  document.getElementById('sumTotalLoans').innerText = `₦${totalLoans.toLocaleString()}`;
-  document.getElementById('sumTotalRepaid').innerText = `₦${totalRepaid.toLocaleString()}`;
-  document.getElementById('sumTotalLoanBal').innerText = `₦${totalLoanBal.toLocaleString()}`;
-  document.getElementById('sumGrandNet').innerText = `₦${grandNet.toLocaleString()}`;
-  document.getElementById('sumTotalMembers').innerText = members.length;
-}
+        <div class="summary-box">
+          <div class="summary-row"><span>Loan Total:</span><span id="loanTotalVal" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Total Paid:</span><span id="loanPaidVal" class="summary-val">₦0</span></div>
+          <div class="summary-row"><span>Balance:</span><span id="loanBalVal" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
+        </div>
+
+        <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 11px; color: #aaa; font-weight: bold;">Issue Loan</span>
+          <div class="field-row" style="margin-top: 6px;">
+            <input type="number" id="newLoanInput" class="field-input" placeholder="Amount (₦)">
+            <button class="action-btn" id="btnAddLoan" style="background: #dc3545; width: 90px; margin-left: 8px;">Add Loan</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
+          <span style="font-size: 11px; color: #aaa; font-weight: bold;">Record Repayment</span>
+          <div class="field-row" style="margin-top: 6px;">
+            <input type="number" id="payLoanInput" class="field-input" placeholder="Amount (₦)">
+            <button class="action-btn" id="btnPayLoan" style="background: #007AFF; width: 90px; margin-left: 8px;">Pay Loan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: MEMBERS LIST (visible only to viewers & editors) -->
+    <div id="tab-Members" class="tab-content">
+      <div class="card">
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+          <div class="shared-input-wrapper" style="flex: 1;">
+            <input type="text" id="searchMemberId" class="id-input-part" placeholder="Member ID (e.g. M-001)">
+            <button class="load-btn-part" id="btnSearchMember">Load</button>
+          </div>
+          <button id="btnGeneralReset" class="action-btn" style="background: #dc3545; width: auto; padding: 0 10px; display: flex; align-items: center; gap: 4px; height: 34px;" title="Reset All Members Financial Records">
+            <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+            <span style="font-size: 10px;">Reset All</span>
+          </button>
+        </div>
+        <div id="membersListContainer"></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: SUMMARY -->
+    <div id="tab-Summary" class="tab-content">
+      <div class="card">
+        <div class="gen-box"><div class="gen-label">TOTAL SAVED</div><div id="sumTotalSaved" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOANS ISSUED</div><div id="sumTotalLoans" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOANS REPAID</div><div id="sumTotalRepaid" class="gen-val">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">TOTAL LOAN BALANCE</div><div id="sumTotalLoanBal" class="gen-val" style="color: #ff6b6b;">₦0</div></div>
+        <div class="gen-box"><div class="gen-label">GRAND NET BALANCE</div><div id="sumGrandNet" class="gen-val" style="color: #51cf66;">₦0</div></div>
+        <div class="gen-box" style="background: #11113a;"><div class="gen-label">TOTAL MEMBERS</div><div id="sumTotalMembers" class="gen-val">0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MEMBER LOGIN -->
+  <div class="modal-overlay" id="modalLogin">
+    <div class="modal-box">
+      <div class="modal-title">MEMBER LOGIN</div>
+      <div class="modal-subtitle">Enter your Member ID (M-xxx or E-xxx)</div>
+      <div class="field-row">
+        <span class="field-label">Member ID</span>
+        <input type="text" id="loginIdInput" class="field-input" placeholder="e.g. M-001">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Password</span>
+        <input type="password" id="loginPassInput" class="field-input" placeholder="Password">
+      </div>
+      <button class="action-btn save-btn" id="btnSubmitLogin" style="width: 100%; margin-top: 8px;">Login</button>
+      <button class="link-btn" id="btnOpenReset">Forgot / Set Password?</button>
+      <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MODAL: PASSWORD RECOVERY WITH MASTER PIN -->
+  <div class="modal-overlay" id="modalReset">
+    <div class="modal-box">
+      <div class="modal-title">PASSWORD RECOVERY</div>
+      <div class="modal-subtitle">Enter your Member ID & click Load</div>
+      
+      <div class="field-row">
+        <span class="field-label">Member ID</span>
+        <div class="shared-input-wrapper">
+          <input type="text" id="resetIdInput" class="id-input-part" placeholder="M-001 or E-001">
+          <button class="load-btn-part" id="btnVerifyReset">Load</button>
+        </div>
+      </div>
+      
+      <div id="resetStatusMsg" style="font-size: 11px; text-align: center; margin: 6px 0; color: #ffd700;"></div>
+      
+      <div id="resetFields" style="display: none;">
+        <div class="field-row">
+          <span class="field-label">Master PIN</span>
+          <input type="password" id="resetMasterPin" class="field-input" placeholder="Admin Security PIN">
+        </div>
+        <div class="field-row">
+          <span class="field-label">New Pass</span>
+          <input type="password" id="resetNewPass" class="field-input" placeholder="New Password">
+        </div>
+        <div class="field-row">
+          <span class="field-label">Verify Pass</span>
+          <input type="password" id="resetVerPass" class="field-input" placeholder="Confirm Password">
+        </div>
+        <button class="action-btn save-btn" id="btnSubmitReset" style="width: 100%; margin-top: 8px;">Update Password</button>
+      </div>
+      
+      <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MODAL: ADMIN SECURITY PIN AUTHENTICATION -->
+  <div class="modal-overlay" id="modalSecurityPin">
+    <div class="modal-box">
+      <div class="modal-title" style="color: #ffd700;">SECURITY VERIFICATION</div>
+      <div class="modal-subtitle" id="securityPinSubTitle">Enter Admin Security PIN to proceed</div>
+      <div class="field-row">
+        <span class="field-label">Master PIN</span>
+        <input type="password" id="securityPinInput" class="field-input" placeholder="Admin PIN">
+      </div>
+      <button class="action-btn" id="btnVerifySecurityPin" style="width: 100%; margin-top: 8px; background: #007AFF;">OK</button>
+      <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
+    </div>
+  </div>
+
+  <!-- MODAL: ACTION CONFIRMATION -->
+  <div class="modal-overlay" id="modalActionConfirm">
+    <div class="modal-box">
+      <div class="modal-title" style="color: #ff6b6b;" id="actionConfirmTitle">CONFIRM ACTION</div>
+      <div class="modal-subtitle" id="actionConfirmMsg" style="color: #fff; font-size: 12px; margin: 12px 0;">
+        Are you sure you want to proceed?
+      </div>
+      <div class="btn-row">
+        <button class="action-btn" id="btnExecuteAction" style="background: #dc3545;">Confirm</button>
+        <button class="action-btn btn-close-modal" style="background: #555;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="tab-bar">
+    <div class="tab-item active" data-tab="Profile">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>Profile</span>
+    </div>
+    <div class="tab-item" data-tab="Weekly">
+      <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+      <span>Weekly</span>
+    </div>
+    <div class="tab-item" data-tab="Loans">
+      <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+      <span>Loans</span>
+    </div>
+    <div class="tab-item" data-tab="Members">
+      <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>Members</span>
+    </div>
+    <div class="tab-item" data-tab="Summary">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+      <span>Summary</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+                                                                                                                                        </html>
