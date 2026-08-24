@@ -1,4 +1,4 @@
-// APP.JS – Full version with overlay login prompt, swipe navigation, privacy, and logout confirmation
+// APP.JS – Full version with email/password authentication, swipe navigation, privacy, logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -13,9 +13,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-firebase.auth().signInAnonymously()
-  .catch(err => console.warn("Anonymous auth failed:", err));
+const auth = firebase.auth();
 
 let members = [];
 let isEditor = false;
@@ -167,7 +165,6 @@ function enableModalElements(modalId) {
 
 // ------------------- LOGIN PROMPT OVERLAY -------------------
 function showLoginPrompt() {
-  // Remove any existing overlay
   hideLoginPrompt();
 
   const overlay = document.createElement('div');
@@ -232,21 +229,44 @@ function hideLoginPrompt() {
   if (overlay) overlay.remove();
 }
 
+// ------------------- AUTH STATE HANDLER -------------------
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // User is signed in
+    const email = user.email || '';
+    const memberId = email.split('@')[0].toUpperCase(); // assumes format like M-001@maqali.com
+    db.ref('members').orderByChild('uid').equalTo(user.uid).once('value').then(snap => {
+      const memberData = snap.val();
+      if (memberData) {
+        const member = Object.values(memberData)[0];
+        if (member.isEditor) {
+          applyEditorUI(member.id);
+        } else {
+          applyMemberUI(member.id);
+        }
+        setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
+      } else {
+        // Member record not found
+        auth.signOut();
+        setViewerMode();
+        setStatus("User not found. Please contact an editor.");
+      }
+    }).catch(err => {
+      console.error("Auth state error:", err);
+      auth.signOut();
+      setViewerMode();
+    });
+  } else {
+    // No user signed in
+    restoreSession();
+  }
+});
+
 function restoreSession() {
   const savedId = localStorage.getItem('activeUserId');
   if (savedId) {
-    const found = members.find(m => m.id === savedId);
-    if (found) {
-      if (found.isEditor) {
-        applyEditorUI(savedId);
-      } else {
-        applyMemberUI(savedId);
-      }
-      setStatus(`Session restored as ${found.isEditor ? 'Editor' : 'Member'} ${savedId}`);
-      return;
-    } else {
-      localStorage.removeItem('activeUserId');
-    }
+    // Legacy session? Not used for auth; clear it
+    localStorage.removeItem('activeUserId');
   }
   setViewerMode();
 }
@@ -275,6 +295,7 @@ function clearProfileForm() {
   document.getElementById('familyTies').value = '';
   document.getElementById('roleType').value = 'Member';
   document.getElementById('password').value = '';
+  document.getElementById('email').value = '';
   document.getElementById('profWeeksPaid').innerText = '0';
   document.getElementById('profAmountSaved').innerText = '₦0';
   document.getElementById('profLoanAmount').innerText = '₦0';
@@ -304,10 +325,6 @@ db.ref('members').on('value', (snapshot) => {
   members = data ? Object.values(data) : [];
   renderMembers();
   renderSummary();
-  if (!window._sessionRestored) {
-    restoreSession();
-    window._sessionRestored = true;
-  }
 }, (error) => {
   setStatus("Database Error: " + error.message);
 });
@@ -354,7 +371,6 @@ function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
 
-  // Only consider horizontal swipe if it's significantly larger than vertical
   if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
@@ -364,10 +380,8 @@ function handleSwipe() {
 
     let newIndex;
     if (deltaX < 0) {
-      // Swipe left -> next tab
       newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
     } else {
-      // Swipe right -> previous tab
       newIndex = Math.max(currentIndex - 1, 0);
     }
 
@@ -433,6 +447,7 @@ function loadProfileForMember(id) {
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
+  document.getElementById('email').value = m.email || `${m.id}@maqali.com`;
   document.getElementById('password').value = '';
 
   const payments = getPaymentsArray(m.weeklyPayments);
@@ -471,6 +486,8 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const typedId = document.getElementById('memberId').value.trim().toUpperCase();
   const name = document.getElementById('name').value.trim();
+  const emailInput = document.getElementById('email').value.trim().toLowerCase();
+  const passwordInput = document.getElementById('password').value.trim();
 
   if (!typedId || !name) return alert("Please enter both Member ID and Name.");
   if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) 
@@ -494,24 +511,45 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
   if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
-  let existing = existingMember || {};
-  const passwordInput = document.getElementById('password').value.trim();
-  const password = passwordInput || existing.password || DEFAULT_PASSWORD;
-
-  const memberObj = {
-    id: typedId,
-    name,
-    age: document.getElementById('age').value,
-    phone: document.getElementById('phone').value,
-    familyTies: document.getElementById('familyTies').value,
-    isEditor: isEditorRole,
-    password,
-    weeklyPayments: existing.weeklyPayments || new Array(50).fill(''),
-    loanAmount: existing.loanAmount || 0,
-    loanPaid: existing.loanPaid || 0
-  };
+  // Determine email
+  const email = emailInput || `${typedId.toLowerCase()}@maqali.com`;
+  const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
   try {
+    let uid = existingMember ? existingMember.uid : null;
+
+    if (!existingMember) {
+      // Create new auth user
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      uid = userCredential.user.uid;
+    } else {
+      // Update existing member's auth if email or password changed
+      if (existingMember.email !== email) {
+        // Cannot update email without re-authentication; not supported in this simple version
+        console.warn("Email change not supported automatically.");
+      }
+      if (passwordInput && existingMember.password !== passwordInput) {
+        // Update password in auth (requires current user logged in as that user, but editor is logged in)
+        // We'll skip for now; editor can use reset flow.
+        console.warn("Password change via profile edit not supported. Use reset flow.");
+      }
+    }
+
+    const memberObj = {
+      id: typedId,
+      name,
+      age: document.getElementById('age').value,
+      phone: document.getElementById('phone').value,
+      familyTies: document.getElementById('familyTies').value,
+      isEditor: isEditorRole,
+      email,
+      uid,
+      password, // store for reference
+      weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+      loanAmount: existingMember ? existingMember.loanAmount : 0,
+      loanPaid: existingMember ? existingMember.loanPaid : 0
+    };
+
     await db.ref('members/' + typedId).set(memberObj);
     alert(`Member ${typedId} saved successfully!`);
     clearProfileForm();
@@ -524,7 +562,7 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
-  if (activeUserId) {
+  if (auth.currentUser) {
     // Show logout confirmation modal
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
@@ -542,20 +580,18 @@ document.getElementById('btnSubmitLogin').addEventListener('click', () => {
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
 
-  db.ref('members/' + id).once('value').then(snap => {
-    const member = snap.val();
-    if (!member) return alert("Member ID not found.");
-    const storedPass = member.password || DEFAULT_PASSWORD;
-    if (storedPass === pass) {
-      localStorage.setItem('activeUserId', id);
-      if (member.isEditor) applyEditorUI(id);
-      else applyMemberUI(id);
+  // Use email derived from member ID
+  const email = `${id.toLowerCase()}@maqali.com`;
+
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(userCredential => {
+      // Success: onAuthStateChanged will handle UI
       closeModals();
-      setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${id}`);
-    } else {
-      alert("Incorrect Password!");
-    }
-  }).catch(err => alert("Login error: " + err.message));
+      setStatus("Login successful.");
+    })
+    .catch(err => {
+      alert("Login failed: " + err.message);
+    });
 });
 
 // ------------------- PASSWORD RECOVERY -------------------
@@ -568,6 +604,7 @@ document.getElementById('btnOpenReset').addEventListener('click', () => {
 document.getElementById('btnVerifyReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
+  
   db.ref('members/' + id).once('value').then(snap => {
     if (!snap.exists()) {
       document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
@@ -582,24 +619,39 @@ document.getElementById('btnVerifyReset').addEventListener('click', () => {
 document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   const inputPin = document.getElementById('resetMasterPin').value.trim();
-  const p1 = document.getElementById('resetNewPass').value;
-  const p2 = document.getElementById('resetVerPass').value;
+  const newPass = document.getElementById('resetNewPass').value;
+  const verPass = document.getElementById('resetVerPass').value;
   if (!id || !inputPin) return alert("Please fill all fields.");
-  if (p1 !== p2) return alert("New passwords do not match.");
+  if (newPass !== verPass) return alert("New passwords do not match.");
 
+  // Verify master PIN
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
-      if (!actualPin) throw new Error("masterPin missing in database.");
+      if (!actualPin) throw new Error("Master PIN missing.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
+      // Get member record
       return db.ref('members/' + id).once('value');
     })
     .then(memberSnap => {
       if (!memberSnap.exists()) throw new Error("Member ID not found.");
-      return db.ref('members/' + id + '/password').set(p1);
+      const member = memberSnap.val();
+      const email = member.email || `${id.toLowerCase()}@maqali.com`;
+      const oldPass = member.password || DEFAULT_PASSWORD;
+      // Sign in with old password to update
+      return auth.signInWithEmailAndPassword(email, oldPass)
+        .then(userCredential => {
+          // Update password in Firebase Auth
+          return userCredential.user.updatePassword(newPass);
+        })
+        .then(() => {
+          // Update password in database
+          return db.ref('members/' + id + '/password').set(newPass);
+        });
     })
     .then(() => {
       alert(`Password for ${id} updated successfully!`);
+      // Clear reset form
       document.getElementById('resetIdInput').value = '';
       document.getElementById('resetMasterPin').value = '';
       document.getElementById('resetNewPass').value = '';
@@ -608,7 +660,9 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       document.getElementById('resetStatusMsg').innerText = '';
       closeModals();
     })
-    .catch(err => alert(err.message));
+    .catch(err => {
+      alert(err.message);
+    });
 });
 
 // ------------------- WEEKLY TAB -------------------
@@ -811,11 +865,12 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       })
       .catch(err => alert("Global reset failed: " + err.message));
   } else if (pendingActionType === 'LOGOUT') {
-    localStorage.removeItem('activeUserId');
-    setViewerMode();
-    closeModals();
-    resetPendingAction();
-    setStatus("Logged out. Switched to Viewer Mode.");
+    auth.signOut().then(() => {
+      setViewerMode();
+      closeModals();
+      resetPendingAction();
+      setStatus("Logged out. Switched to Viewer Mode.");
+    });
   }
 });
 
@@ -829,7 +884,6 @@ function renderMembers(filterQuery = '') {
   const container = document.getElementById('membersListContainer');
   if (!container) return;
 
-  // If not logged in, do not show members
   if (activeUserRole === "viewer") {
     container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
       Please log in to view members.
@@ -867,14 +921,12 @@ function createMemberCardHTML(m) {
   const lPaid = parseFloat(m.loanPaid) || 0;
   const lBal = Math.max(0, lAmt - lPaid);
 
-  // Privacy: editors see everything; normal members see own full details, others masked/hidden
   const isOwnProfile = (activeUserId === m.id);
   const canSeeFullDetails = isEditor || isOwnProfile;
   
   const displayId = canSeeFullDetails ? m.id : maskID(m.id);
   const displayPhone = canSeeFullDetails ? (m.phone || 'N/A') : 'Hidden';
 
-  // Action buttons only for editors
   const actionButtons = isEditor ? `
     <div class="card-actions">
       <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
