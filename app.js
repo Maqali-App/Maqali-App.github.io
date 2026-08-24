@@ -1,4 +1,4 @@
-// APP.JS – Full version with database-only password, anonymous read access, swipe navigation, privacy, logout confirmation
+// APP.JS – Full version with session persistence, tab restoration, inactivity logout
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -29,7 +29,10 @@ let pendingTargetId = null;
 let membersListener = null;
 
 const DEFAULT_PASSWORD = "1234";
-const EMAIL_DOMAIN = "@maqali.com"; // no longer used for auth, kept for reference if needed
+const EMAIL_DOMAIN = "@maqali.com"; // kept for reference if needed
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+let inactivityTimer = null;
 
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
@@ -56,6 +59,46 @@ function maskID(id) {
   return prefix + '-***';
 }
 
+// ------------------- SESSION HELPERS -------------------
+function saveSession(userId, role, tab) {
+  localStorage.setItem('maqali_active_user', userId);
+  localStorage.setItem('maqali_active_role', role);
+  if (tab) localStorage.setItem('maqali_active_tab', tab);
+}
+
+function clearSession() {
+  localStorage.removeItem('maqali_active_user');
+  localStorage.removeItem('maqali_active_role');
+  localStorage.removeItem('maqali_active_tab');
+}
+
+function getStoredSession() {
+  return {
+    userId: localStorage.getItem('maqali_active_user'),
+    role: localStorage.getItem('maqali_active_role'),
+    tab: localStorage.getItem('maqali_active_tab')
+  };
+}
+
+// ------------------- INACTIVITY LOGOUT -------------------
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    if (activeUserId) {
+      setViewerMode();
+      closeModals();
+      setStatus("Logged out due to inactivity.");
+      clearSession();
+      resetInactivityTimer();
+    }
+  }, INACTIVITY_TIMEOUT);
+}
+
+function stopInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  inactivityTimer = null;
+}
+
 // ------------------- UI STATE MANAGEMENT -------------------
 function setViewerMode() {
   isEditor = false;
@@ -72,6 +115,7 @@ function setViewerMode() {
   members = [];
   renderMembers();
   renderSummary();
+  stopInactivityTimer();
   setStatus("Please log in to access your data.");
 }
 
@@ -87,6 +131,7 @@ function applyEditorUI(editorId) {
   unlockAllTabs();
   hideLoginPrompt();
   attachMembersListener();
+  resetInactivityTimer();
 }
 
 function applyMemberUI(memberId) {
@@ -101,6 +146,7 @@ function applyMemberUI(memberId) {
   unlockAllTabs();
   hideLoginPrompt();
   attachMembersListener();
+  resetInactivityTimer();
 
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
     const el = document.getElementById(fid);
@@ -252,15 +298,42 @@ function hideLoginPrompt() {
 // ------------------- AUTH STATE HANDLER (anonymous only) -------------------
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
-    // Guest user: allow read access but stay in viewer mode
-    detachMembersListener();
-    setViewerMode();
+    // We are authenticated as guest; now try to restore previous session if any
+    const stored = getStoredSession();
+    if (stored.userId && stored.role) {
+      // Fetch the member and apply UI
+      fetchMemberById(stored.userId).then(member => {
+        if (member) {
+          if (stored.role === 'editor' && member.isEditor) {
+            applyEditorUI(member.id);
+          } else if (stored.role === 'member' && !member.isEditor) {
+            applyMemberUI(member.id);
+          } else {
+            // Mismatch, clear and show viewer
+            clearSession();
+            setViewerMode();
+          }
+          // Restore active tab
+          if (stored.tab) {
+            const tabItem = Array.from(document.querySelectorAll('.tab-item')).find(t => t.getAttribute('data-tab') === stored.tab);
+            if (tabItem) switchToTab(tabItem);
+          }
+        } else {
+          clearSession();
+          setViewerMode();
+        }
+      }).catch(() => {
+        clearSession();
+        setViewerMode();
+      });
+    } else {
+      setViewerMode();
+    }
   } else {
-    // If for some reason a non-anonymous user is signed in, sign out and sign in anonymously
+    // Should not happen (we only use anonymous), but if non-anonymous, sign out and anon
     if (user) {
       auth.signOut().then(() => auth.signInAnonymously());
     } else {
-      // No user at all, sign in anonymously
       auth.signInAnonymously();
     }
   }
@@ -333,6 +406,8 @@ document.querySelectorAll('.tab-item').forEach(item => {
       return;
     }
     switchToTab(this);
+    // Save active tab for restoration
+    localStorage.setItem('maqali_active_tab', this.getAttribute('data-tab'));
   });
 });
 
@@ -382,6 +457,7 @@ function handleSwipe() {
 
     if (newIndex !== currentIndex) {
       switchToTab(visibleTabs[newIndex]);
+      localStorage.setItem('maqali_active_tab', visibleTabs[newIndex].getAttribute('data-tab'));
     }
   }
 }
@@ -516,8 +592,8 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
     phone: document.getElementById('phone').value,
     familyTies: document.getElementById('familyTies').value,
     isEditor: isEditorRole,
-    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`, // kept for reference, not used for auth
-    uid: existingMember ? existingMember.uid : null,   // kept for potential future use
+    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+    uid: existingMember ? existingMember.uid : null,
     password,
     weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
     loanAmount: existingMember ? existingMember.loanAmount : 0,
@@ -538,7 +614,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 // ------------------- LOGIN / LOGOUT (database-only) -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
   if (activeUserId) {
-    // Show logout confirmation modal
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
     document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
@@ -562,11 +637,14 @@ document.getElementById('btnSubmitLogin').addEventListener('click', async () => 
   if (pass === storedPass) {
     if (member.isEditor) {
       applyEditorUI(member.id);
+      saveSession(member.id, 'editor');
     } else {
       applyMemberUI(member.id);
+      saveSession(member.id, 'member');
     }
     closeModals();
     setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
+    resetInactivityTimer();
   } else {
     alert("Incorrect password.");
   }
@@ -615,7 +693,6 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
     })
     .then(() => {
       alert(`Password for ${id} updated successfully!`);
-      // Clear reset form
       document.getElementById('resetIdInput').value = '';
       document.getElementById('resetMasterPin').value = '';
       document.getElementById('resetNewPass').value = '';
@@ -835,7 +912,9 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       })
       .catch(err => alert("Global reset failed: " + err.message));
   } else if (pendingActionType === 'LOGOUT') {
-    // Simply clear local state; anonymous auth remains for read access
+    // Clear session and stop timer
+    clearSession();
+    stopInactivityTimer();
     setViewerMode();
     closeModals();
     resetPendingAction();
@@ -945,3 +1024,11 @@ function renderSummary() {
   document.getElementById('sumGrandNet').innerText = `₦${grandNet.toLocaleString()}`;
   document.getElementById('sumTotalMembers').innerText = members.length;
 }
+
+// ------------------- ACTIVITY LISTENERS (for inactivity logout) -------------------
+['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(eventType => {
+  window.addEventListener(eventType, resetInactivityTimer, { passive: true });
+});
+
+// Initialize viewer mode on first load (before any auth state change)
+setViewerMode();
