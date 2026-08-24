@@ -1,4 +1,4 @@
-// APP.JS – Corrected with direct DB fetch fallback for member loads
+// APP.JS – Full version with self-healing editor records, direct member fetch, swipe navigation, privacy, logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -108,7 +108,6 @@ function applyMemberUI(memberId) {
     el.readOnly = true;
   });
 
-  // These functions now use direct DB fetch if member not in local array
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
@@ -250,7 +249,7 @@ function hideLoginPrompt() {
   if (overlay) overlay.remove();
 }
 
-// ------------------- AUTH STATE HANDLER -------------------
+// ------------------- AUTH STATE HANDLER (self‑healing editor records) -------------------
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
     // Guest user: allow reads but no members listener
@@ -261,14 +260,14 @@ auth.onAuthStateChanged(user => {
   
   if (user) {
     // Email/password user
-    const emailPrefix = user.email.split('@')[0].toUpperCase();  // e.g., "E-001"
-    
-    // Directly fetch the member record by derived Member ID
+    const emailPrefix = user.email.split('@')[0].toUpperCase(); // e.g., "E-001"
+
+    // Directly fetch the member record by derived ID
     db.ref('members/' + emailPrefix).once('value')
       .then(snap => {
-        const member = snap.val();
-        if (member) {
-          // If the member doesn't have a matching uid, update it (for legacy records)
+        if (snap.exists()) {
+          const member = snap.val();
+          // Update uid if missing or mismatched
           if (!member.uid || member.uid !== user.uid) {
             db.ref('members/' + emailPrefix + '/uid').set(user.uid);
           }
@@ -279,9 +278,32 @@ auth.onAuthStateChanged(user => {
           }
           setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
         } else {
-          auth.signOut();
-          setViewerMode();
-          setStatus("User not found. Please contact an editor.");
+          // Member record missing: if it's an editor ID, create default record
+          if (emailPrefix === 'E-001' || emailPrefix === 'E-002') {
+            const defaultEditor = {
+              id: emailPrefix,
+              name: emailPrefix === 'E-001' ? 'Admin Editor' : 'Second Editor',
+              age: '',
+              phone: '',
+              familyTies: '',
+              isEditor: true,
+              email: user.email,
+              uid: user.uid,
+              password: DEFAULT_PASSWORD,
+              weeklyPayments: [],
+              loanAmount: 0,
+              loanPaid: 0
+            };
+            db.ref('members/' + emailPrefix).set(defaultEditor)
+              .then(() => {
+                applyEditorUI(emailPrefix);
+                setStatus(`Editor account created and logged in as ${emailPrefix}`);
+              });
+          } else {
+            auth.signOut();
+            setViewerMode();
+            setStatus("User not found. Please contact an editor.");
+          }
         }
       })
       .catch(err => {
@@ -309,7 +331,7 @@ function getPaymentsArray(raw) {
   return arr;
 }
 
-// Helper to fetch member by ID directly from database (used as fallback)
+// Helper to fetch member by ID directly from database (fallback)
 async function fetchMemberById(id) {
   try {
     const snap = await db.ref('members/' + id).once('value');
@@ -464,7 +486,6 @@ document.getElementById('btnNewID').addEventListener('click', () => {
 async function loadProfileForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) {
-    // Fallback: direct DB fetch
     m = await fetchMemberById(id);
     if (!m) {
       alert(`Member ID '${id}' not found.`);
