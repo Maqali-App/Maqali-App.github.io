@@ -1,4 +1,4 @@
-// APP.JS – Full version with swipe navigation, privacy, and logout confirmation
+// APP.JS – Full version with overlay login prompt, swipe navigation, privacy, and logout confirmation
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -165,48 +165,71 @@ function enableModalElements(modalId) {
   });
 }
 
+// ------------------- LOGIN PROMPT OVERLAY -------------------
 function showLoginPrompt() {
-  const profileTab = document.getElementById('tab-Profile');
-  if (profileTab) {
-    let loginPrompt = document.getElementById('loginPrompt');
-    if (!loginPrompt) {
-      loginPrompt = document.createElement('div');
-      loginPrompt.id = 'loginPrompt';
-      loginPrompt.style.cssText = `
-        text-align: center;
-        padding: 20px;
-        background: #000018;
-        border: 1px solid #007AFF;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        color: #ffd700;
-        font-size: 14px;
+  // Remove any existing overlay
+  hideLoginPrompt();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'loginPromptOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 15px;
+  `;
+
+  overlay.innerHTML = `
+    <div style="
+      background: #000028;
+      border: 1px solid #007AFF;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      max-width: 340px;
+      width: 100%;
+      color: #ffd700;
+      font-size: 14px;
+      font-weight: bold;
+    ">
+      <div style="margin-bottom: 10px;">🔒 ACCESS RESTRICTED</div>
+      <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+        Please log in to view your data.<br>
+        Contact an editor if you don't have an account.
+      </div>
+      <button id="loginPromptBtn" style="
+        background: #007AFF;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 20px;
+        font-size: 12px;
         font-weight: bold;
-      `;
-      loginPrompt.innerHTML = `
-        <div style="margin-bottom: 10px;">🔒 ACCESS RESTRICTED</div>
-        <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
-          Please log in to view your data.<br>
-          Contact an editor if you don't have an account.
-        </div>
-        <button id="loginPromptBtn" style="background: #007AFF; color: #fff; border: none; border-radius: 4px; 
-                       padding: 10px 20px; font-size: 12px; font-weight: bold; cursor: pointer;">
-          Login Now
-        </button>
-      `;
-      profileTab.insertBefore(loginPrompt, profileTab.firstChild);
-      
-      document.getElementById('loginPromptBtn').addEventListener('click', () => {
-        enableModalElements('modalLogin');
-        document.getElementById('modalLogin').classList.add('active');
-      });
-    }
-  }
+        cursor: pointer;
+      ">
+        Login Now
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('loginPromptBtn').addEventListener('click', () => {
+    enableModalElements('modalLogin');
+    document.getElementById('modalLogin').classList.add('active');
+  });
 }
 
 function hideLoginPrompt() {
-  const loginPrompt = document.getElementById('loginPrompt');
-  if (loginPrompt) loginPrompt.remove();
+  const overlay = document.getElementById('loginPromptOverlay');
+  if (overlay) overlay.remove();
 }
 
 function restoreSession() {
