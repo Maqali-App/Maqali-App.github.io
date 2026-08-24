@@ -1,4 +1,4 @@
-// APP.JS – Full version with email/password auth (hidden email), overlay login, swipe navigation, privacy, logout confirmation
+// APP.JS – Full version with anonymous read access for password recovery
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -15,15 +15,18 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
+// Temporary anonymous sign-in for read access (guest)
+auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
+
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer";  // "viewer", "member", or "editor"
+let activeUserRole = "viewer";
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
 let pendingTargetId = null;
-let membersListener = null; // to manage database listener
+let membersListener = null;
 
 const DEFAULT_PASSWORD = "1234";
 const EMAIL_DOMAIN = "@maqali.com";
@@ -65,7 +68,7 @@ function setViewerMode() {
   updateTabsVisibility();
   lockAllTabs();
   showLoginPrompt();
-  detachMembersListener(); // ensure we don't listen when logged out
+  detachMembersListener();
   members = [];
   renderMembers();
   renderSummary();
@@ -83,7 +86,7 @@ function applyEditorUI(editorId) {
   updateTabsVisibility();
   unlockAllTabs();
   hideLoginPrompt();
-  attachMembersListener(); // start listening to members
+  attachMembersListener();
 }
 
 function applyMemberUI(memberId) {
@@ -99,14 +102,12 @@ function applyMemberUI(memberId) {
   hideLoginPrompt();
   attachMembersListener();
 
-  // Lock all ID inputs to this member's ID
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
     const el = document.getElementById(fid);
     el.value = memberId;
     el.readOnly = true;
   });
 
-  // Auto-load member's data
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
@@ -250,11 +251,16 @@ function hideLoginPrompt() {
 
 // ------------------- AUTH STATE HANDLER -------------------
 auth.onAuthStateChanged(user => {
+  if (user && user.isAnonymous) {
+    // Guest user: allow reads but no members listener
+    detachMembersListener();
+    setViewerMode();
+    return;
+  }
+  
   if (user) {
-    // We are authenticated, attach members listener if not already
+    // Email/password user
     attachMembersListener();
-
-    // Find member by uid
     db.ref('members').orderByChild('uid').equalTo(user.uid).once('value')
       .then(snap => {
         const memberData = snap.val();
@@ -264,7 +270,6 @@ auth.onAuthStateChanged(user => {
           else applyMemberUI(member.id);
           setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
         } else {
-          // Fallback: try email prefix (legacy)
           const emailPrefix = user.email.split('@')[0].toUpperCase();
           const legacyMember = members.find(m => m.id === emailPrefix);
           if (legacyMember) {
@@ -285,10 +290,10 @@ auth.onAuthStateChanged(user => {
         setViewerMode();
       });
   } else {
-    // User signed out
+    // No user (signed out completely) – sign in anonymously again
     detachMembersListener();
-    members = [];
     setViewerMode();
+    auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
   }
 });
 
@@ -519,7 +524,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
   if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
-  // Auto-generate email from member ID
   const email = `${typedId.toLowerCase()}${EMAIL_DOMAIN}`;
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
@@ -527,40 +531,25 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
     let uid = existingMember ? existingMember.uid : null;
 
     if (!existingMember) {
-      // Create Auth user via REST API to keep editor signed in
       const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
       const response = await fetch(signupUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          returnSecureToken: false
-        })
+        body: JSON.stringify({ email, password, returnSecureToken: false })
       });
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to create auth user.');
-      }
+      if (!response.ok) throw new Error(data.error?.message || 'Failed to create auth user.');
       uid = data.localId;
     } else if (!existingMember.uid) {
-      // Existing member missing uid: create auth user via REST API
       const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
       const response = await fetch(signupUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          returnSecureToken: false
-        })
+        body: JSON.stringify({ email, password, returnSecureToken: false })
       });
       const data = await response.json();
-      if (response.ok) {
-        uid = data.localId;
-      } else if (data.error?.message === 'EMAIL_EXISTS') {
-        console.warn(`Auth user already exists for ${email}. UID not stored automatically.`);
-      }
+      if (response.ok) uid = data.localId;
+      else if (data.error?.message === 'EMAIL_EXISTS') console.warn(`Auth user already exists for ${email}.`);
     }
 
     const memberObj = {
@@ -570,9 +559,9 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
       phone: document.getElementById('phone').value,
       familyTies: document.getElementById('familyTies').value,
       isEditor: isEditorRole,
-      email: email,   // store internal email
-      uid: uid,       // store auth UID
-      password: password,
+      email,
+      uid,
+      password,
       weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
       loanAmount: existingMember ? existingMember.loanAmount : 0,
       loanPaid: existingMember ? existingMember.loanPaid : 0
@@ -590,7 +579,7 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
-  if (auth.currentUser) {
+  if (auth.currentUser && !auth.currentUser.isAnonymous) {
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
     document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
@@ -613,9 +602,7 @@ document.getElementById('btnSubmitLogin').addEventListener('click', () => {
       closeModals();
       setStatus("Login successful.");
     })
-    .catch(err => {
-      alert("Login failed: " + err.message);
-    });
+    .catch(err => alert("Login failed: " + err.message));
 });
 
 // ------------------- PASSWORD RECOVERY -------------------
@@ -636,6 +623,9 @@ document.getElementById('btnVerifyReset').addEventListener('click', () => {
     }
     document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
     document.getElementById('resetFields').style.display = 'block';
+  }).catch(err => {
+    console.error("Recovery load error:", err);
+    alert("Failed to load member. Please try again.");
   });
 });
 
@@ -659,7 +649,6 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       const member = memberSnap.val();
       const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
       const oldPass = member.password || DEFAULT_PASSWORD;
-      // Sign out current user first to avoid session conflict
       return auth.signOut()
         .then(() => auth.signInWithEmailAndPassword(email, oldPass))
         .then(userCredential => userCredential.user.updatePassword(newPass))
@@ -885,6 +874,8 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       closeModals();
       resetPendingAction();
       setStatus("Logged out. Switched to Viewer Mode.");
+      // Re-authenticate as guest to allow password recovery reads
+      auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
     });
   }
 });
