@@ -1,4 +1,4 @@
-// APP.JS – Full version with anonymous read access for password recovery
+// APP.JS – Corrected with direct DB fetch fallback for member loads
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -108,6 +108,7 @@ function applyMemberUI(memberId) {
     el.readOnly = true;
   });
 
+  // These functions now use direct DB fetch if member not in local array
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
@@ -309,6 +310,17 @@ function getPaymentsArray(raw) {
   return arr;
 }
 
+// Helper to fetch member by ID directly from database (used as fallback)
+async function fetchMemberById(id) {
+  try {
+    const snap = await db.ref('members/' + id).once('value');
+    return snap.val();
+  } catch (err) {
+    console.error("Direct fetch error:", err);
+    return null;
+  }
+}
+
 function clearProfileForm() {
   const idInput = document.getElementById('memberId');
   idInput.value = '';
@@ -450,11 +462,15 @@ document.getElementById('btnNewID').addEventListener('click', () => {
   setStatus("Generated New ID: " + idInput.value);
 });
 
-function loadProfileForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+async function loadProfileForMember(id) {
+  let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) {
-    alert(`Member ID '${id}' not found.`);
-    return;
+    // Fallback: direct DB fetch
+    m = await fetchMemberById(id);
+    if (!m) {
+      alert(`Member ID '${id}' not found.`);
+      return;
+    }
   }
 
   document.getElementById('name').value = m.name || '';
@@ -485,14 +501,14 @@ function loadProfileForMember(id) {
   setStatus(`Loaded Profile for ${id}`);
 }
 
-document.getElementById('btnLoadProfile').addEventListener('click', () => {
+document.getElementById('btnLoadProfile').addEventListener('click', async () => {
   if (activeUserRole === "member") {
-    loadProfileForMember(activeUserId);
+    await loadProfileForMember(activeUserId);
     return;
   }
   const inputId = document.getElementById('memberId').value.trim().toUpperCase();
   if (!inputId) return alert("Please enter a Member ID to load!");
-  loadProfileForMember(inputId);
+  await loadProfileForMember(inputId);
 });
 
 document.getElementById('btnSaveMember').addEventListener('click', async () => {
@@ -670,9 +686,12 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
 });
 
 // ------------------- WEEKLY TAB -------------------
-function loadWeeklyForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
+async function loadWeeklyForMember(id) {
+  let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+  if (!m) {
+    m = await fetchMemberById(id);
+    if (!m) return alert(`Member ID ${id} not found.`);
+  }
   document.getElementById('weeklyMemberId').value = id;
   document.getElementById('weeklyMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const payments = getPaymentsArray(m.weeklyPayments);
@@ -682,14 +701,14 @@ function loadWeeklyForMember(id) {
   setStatus(`Weekly grid loaded for ${id} (${m.name})`);
 }
 
-document.getElementById('btnLoadWeekly').addEventListener('click', () => {
+document.getElementById('btnLoadWeekly').addEventListener('click', async () => {
   if (activeUserRole === "member") {
-    loadWeeklyForMember(activeUserId);
+    await loadWeeklyForMember(activeUserId);
     return;
   }
   const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
-  loadWeeklyForMember(id);
+  await loadWeeklyForMember(id);
 });
 
 document.getElementById('btnSavePayments').addEventListener('click', () => {
@@ -712,9 +731,12 @@ document.getElementById('btnSavePayments').addEventListener('click', () => {
 });
 
 // ------------------- LOANS TAB -------------------
-function loadLoansForMember(id) {
-  const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) return alert(`Member ID ${id} not found.`);
+async function loadLoansForMember(id) {
+  let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
+  if (!m) {
+    m = await fetchMemberById(id);
+    if (!m) return alert(`Member ID ${id} not found.`);
+  }
   document.getElementById('loansMemberId').value = id;
   document.getElementById('loansMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const lAmt = parseFloat(m.loanAmount) || 0;
@@ -726,14 +748,14 @@ function loadLoansForMember(id) {
   setStatus(`Loan details loaded for ${id} (${m.name})`);
 }
 
-document.getElementById('btnLoadLoans').addEventListener('click', () => {
+document.getElementById('btnLoadLoans').addEventListener('click', async () => {
   if (activeUserRole === "member") {
-    loadLoansForMember(activeUserId);
+    await loadLoansForMember(activeUserId);
     return;
   }
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
-  loadLoansForMember(id);
+  await loadLoansForMember(id);
 });
 
 document.getElementById('btnAddLoan').addEventListener('click', () => {
