@@ -1031,4 +1031,4 @@ function renderSummary() {
 });
 
 // Initialize viewer mode on first load (before any auth state change)
-setViewerMode();
+//setViewerMode();
