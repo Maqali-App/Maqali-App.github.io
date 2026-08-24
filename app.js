@@ -261,32 +261,31 @@ auth.onAuthStateChanged(user => {
   
   if (user) {
     // Email/password user
-    attachMembersListener();
-    db.ref('members').orderByChild('uid').equalTo(user.uid).once('value')
+    const emailPrefix = user.email.split('@')[0].toUpperCase();  // e.g., "E-001"
+    
+    // Directly fetch the member record by derived Member ID
+    db.ref('members/' + emailPrefix).once('value')
       .then(snap => {
-        const memberData = snap.val();
-        if (memberData) {
-          const member = Object.values(memberData)[0];
-          if (member.isEditor) applyEditorUI(member.id);
-          else applyMemberUI(member.id);
+        const member = snap.val();
+        if (member) {
+          // If the member doesn't have a matching uid, update it (for legacy records)
+          if (!member.uid || member.uid !== user.uid) {
+            db.ref('members/' + emailPrefix + '/uid').set(user.uid);
+          }
+          if (member.isEditor) {
+            applyEditorUI(member.id);
+          } else {
+            applyMemberUI(member.id);
+          }
           setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
         } else {
-          const emailPrefix = user.email.split('@')[0].toUpperCase();
-          const legacyMember = members.find(m => m.id === emailPrefix);
-          if (legacyMember) {
-            db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
-            if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
-            else applyMemberUI(legacyMember.id);
-            setStatus(`Logged in as ${legacyMember.isEditor ? 'Editor' : 'Member'} ${legacyMember.id}`);
-          } else {
-            auth.signOut();
-            setViewerMode();
-            setStatus("User not found. Please contact an editor.");
-          }
+          auth.signOut();
+          setViewerMode();
+          setStatus("User not found. Please contact an editor.");
         }
       })
       .catch(err => {
-        console.error("Auth query error:", err);
+        console.error("Auth fetch error:", err);
         auth.signOut();
         setViewerMode();
       });
