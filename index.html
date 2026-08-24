@@ -125,50 +125,55 @@
 
   <!-- Wrap all tab contents inside a sliding container -->
   <div class="tab-container" id="tabContainer">
-    <!-- TAB 1: PROFILE -->
-    <div id="tab-Profile" class="tab-content active">
-      <div class="card">
-        <div class="field-row">
-          <span class="field-label">Member ID</span>
-          <div class="shared-input-wrapper">
-            <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
-            <button class="load-btn-part" id="btnLoadProfile">Load</button>
-          </div>
-        </div>
-        
-        <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
-        <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
-        <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
-        <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
-        <div class="field-row">
-          <span class="field-label">Role Type</span>
-          <select id="roleType" class="field-input">
-            <option value="Member">Normal Member (M-)</option>
-            <option value="Editor">Editor (E-)</option>
-          </select>
-        </div>
-        <!-- New password field for member creation/editing -->
-        <div class="field-row">
-          <span class="field-label">Password</span>
-          <input type="password" id="password" class="field-input" placeholder="Leave blank for default 1234">
-        </div>
-
-        <div class="btn-row">
-          <button class="action-btn" id="btnNewID">New ID</button>
-          <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
-        </div>
-
-        <div class="summary-box">
-          <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
-          <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
-          <div class="summary-row"><span>Loan Amount:</span><span id="profLoanAmount" class="summary-val">₦0</span></div>
-          <div class="summary-row"><span>Loan Paid:</span><span id="profLoanPaid" class="summary-val">₦0</span></div>
-          <div class="summary-row"><span>Loan Balance:</span><span id="profLoanBalance" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
-          <div class="summary-row"><span>Net Balance:</span><span id="profNetBalance" class="summary-val" style="color: #51cf66;">₦0</span></div>
-        </div>
+  
+       <!-- TAB 1: PROFILE -->
+<div id="tab-Profile" class="tab-content active">
+  <div class="card">
+    <div class="field-row">
+      <span class="field-label">Member ID</span>
+      <div class="shared-input-wrapper">
+        <input type="text" id="memberId" class="id-input-part" placeholder="Type ID to search">
+        <button class="load-btn-part" id="btnLoadProfile">Load</button>
       </div>
     </div>
+    
+    <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
+    <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
+    <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
+    <div class="field-row"><span class="field-label">Family Ties</span><input type="text" id="familyTies" class="field-input" placeholder="Ties"></div>
+    <!-- NEW EMAIL FIELD -->
+    <div class="field-row">
+      <span class="field-label">Email</span>
+      <input type="email" id="email" class="field-input" placeholder="Email (optional)">
+    </div>
+    <div class="field-row">
+      <span class="field-label">Role Type</span>
+      <select id="roleType" class="field-input">
+        <option value="Member">Normal Member (M-)</option>
+        <option value="Editor">Editor (E-)</option>
+      </select>
+    </div>
+    <!-- Password field (already present) -->
+    <div class="field-row">
+      <span class="field-label">Password</span>
+      <input type="password" id="password" class="field-input" placeholder="Leave blank for default 1234">
+    </div>
 
+    <div class="btn-row">
+      <button class="action-btn" id="btnNewID">New ID</button>
+      <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
+      <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
+      <div class="summary-row"><span>Loan Amount:</span><span id="profLoanAmount" class="summary-val">₦0</span></div>
+      <div class="summary-row"><span>Loan Paid:</span><span id="profLoanPaid" class="summary-val">₦0</span></div>
+      <div class="summary-row"><span>Loan Balance:</span><span id="profLoanBalance" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
+      <div class="summary-row"><span>Net Balance:</span><span id="profNetBalance" class="summary-val" style="color: #51cf66;">₦0</span></div>
+    </div>
+  </div>
+</div>
     <!-- TAB 2: WEEKLY -->
     <div id="tab-Weekly" class="tab-content">
       <div class="card">
