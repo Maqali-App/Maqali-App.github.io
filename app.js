@@ -1,4 +1,4 @@
-// APP.JS – Full version with session persistence, tab restoration, inactivity logout, no flash on refresh
+// APP.JS – Full version with no-flash refresh, session persistence, tab restoration, inactivity logout
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -18,8 +18,8 @@ const auth = firebase.auth();
 // Temporary anonymous sign-in for read access (guest)
 auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
 
-// Add loading class to hide content until session is restored
-document.body.classList.add('app-loading');
+// Add loading and no-animation classes to hide content and prevent transition during restore
+document.body.classList.add('app-loading', 'no-tab-animation');
 
 let members = [];
 let isEditor = false;
@@ -323,14 +323,18 @@ auth.onAuthStateChanged(user => {
           clearSession();
           setViewerMode();
         }
+        // Remove loading and no-animation classes after restore
+        document.body.classList.remove('no-tab-animation');
         document.body.classList.remove('app-loading');
       }).catch(() => {
         clearSession();
         setViewerMode();
+        document.body.classList.remove('no-tab-animation');
         document.body.classList.remove('app-loading');
       });
     } else {
       setViewerMode();
+      document.body.classList.remove('no-tab-animation');
       document.body.classList.remove('app-loading');
     }
   } else {
