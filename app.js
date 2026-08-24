@@ -1,4 +1,4 @@
-// APP.JS – Full version with session persistence, tab restoration, inactivity logout
+// APP.JS – Full version with session persistence, tab restoration, inactivity logout, no flash on refresh
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -17,6 +17,9 @@ const auth = firebase.auth();
 
 // Temporary anonymous sign-in for read access (guest)
 auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
+
+// Add loading class to hide content until session is restored
+document.body.classList.add('app-loading');
 
 let members = [];
 let isEditor = false;
@@ -298,10 +301,9 @@ function hideLoginPrompt() {
 // ------------------- AUTH STATE HANDLER (anonymous only) -------------------
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
-    // We are authenticated as guest; now try to restore previous session if any
+    // Restore previous session if any
     const stored = getStoredSession();
     if (stored.userId && stored.role) {
-      // Fetch the member and apply UI
       fetchMemberById(stored.userId).then(member => {
         if (member) {
           if (stored.role === 'editor' && member.isEditor) {
@@ -309,7 +311,6 @@ auth.onAuthStateChanged(user => {
           } else if (stored.role === 'member' && !member.isEditor) {
             applyMemberUI(member.id);
           } else {
-            // Mismatch, clear and show viewer
             clearSession();
             setViewerMode();
           }
@@ -322,12 +323,15 @@ auth.onAuthStateChanged(user => {
           clearSession();
           setViewerMode();
         }
+        document.body.classList.remove('app-loading');
       }).catch(() => {
         clearSession();
         setViewerMode();
+        document.body.classList.remove('app-loading');
       });
     } else {
       setViewerMode();
+      document.body.classList.remove('app-loading');
     }
   } else {
     // Should not happen (we only use anonymous), but if non-anonymous, sign out and anon
@@ -1029,6 +1033,3 @@ function renderSummary() {
 ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(eventType => {
   window.addEventListener(eventType, resetInactivityTimer, { passive: true });
 });
-
-// Initialize viewer mode on first load (before any auth state change)
-//setViewerMode();
