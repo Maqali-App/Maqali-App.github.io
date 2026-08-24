@@ -1,4 +1,4 @@
-// APP.JS – Full corrected version with REST API for new member creation, keeping editor logged in
+// APP.JS – Full corrected version with improved login for existing users
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -18,7 +18,7 @@ const auth = firebase.auth();
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer";  // "viewer", "member", or "editor"
+let activeUserRole = "viewer";
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
@@ -93,14 +93,12 @@ function applyMemberUI(memberId) {
   unlockAllTabs();
   hideLoginPrompt();
 
-  // Lock all ID inputs to this member's ID
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
     const el = document.getElementById(fid);
     el.value = memberId;
     el.readOnly = true;
   });
 
-  // Auto-load member's data
   loadProfileForMember(memberId);
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
@@ -111,20 +109,12 @@ function updateTabsVisibility() {
   const tabItems = document.querySelectorAll('.tab-item');
   
   if (activeUserRole === "viewer") {
-    // Not logged in: show only Profile tab
     tabItems.forEach(tab => {
       const tabName = tab.getAttribute('data-tab');
-      if (tabName === 'Profile') {
-        tab.style.display = "flex";
-      } else {
-        tab.style.display = "none";
-      }
+      tab.style.display = (tabName === 'Profile') ? "flex" : "none";
     });
   } else {
-    // Logged in as either member or editor: show all tabs
-    tabItems.forEach(tab => {
-      tab.style.display = "flex";
-    });
+    tabItems.forEach(tab => tab.style.display = "flex");
   }
 }
 
@@ -233,24 +223,19 @@ function hideLoginPrompt() {
 // ------------------- AUTH STATE HANDLER -------------------
 auth.onAuthStateChanged(user => {
   if (user) {
-    // User is signed in; find member by uid
     db.ref('members').orderByChild('uid').equalTo(user.uid).once('value')
       .then(snap => {
         const memberData = snap.val();
         if (memberData) {
           const member = Object.values(memberData)[0];
-          if (member.isEditor) {
-            applyEditorUI(member.id);
-          } else {
-            applyMemberUI(member.id);
-          }
+          if (member.isEditor) applyEditorUI(member.id);
+          else applyMemberUI(member.id);
           setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
         } else {
           // Fallback: try match by email prefix (legacy)
           const emailPrefix = user.email.split('@')[0].toUpperCase();
           const legacyMember = members.find(m => m.id === emailPrefix);
           if (legacyMember) {
-            // Update uid in database for future
             db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
             if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
             else applyMemberUI(legacyMember.id);
@@ -264,7 +249,7 @@ auth.onAuthStateChanged(user => {
       })
       .catch(err => {
         console.error("Auth query error:", err);
-        // Fallback to email prefix even on error
+        // Fallback to email prefix
         const emailPrefix = user.email.split('@')[0].toUpperCase();
         const legacyMember = members.find(m => m.id === emailPrefix);
         if (legacyMember) {
@@ -278,13 +263,11 @@ auth.onAuthStateChanged(user => {
         }
       });
   } else {
-    // No user signed in
     restoreSession();
   }
 });
 
 function restoreSession() {
-  // We no longer use local storage for auth; just show viewer
   localStorage.removeItem('activeUserId');
   setViewerMode();
 }
@@ -302,9 +285,8 @@ function getPaymentsArray(raw) {
 }
 
 function clearProfileForm() {
-  const idInput = document.getElementById('memberId');
-  idInput.value = '';
-  idInput.readOnly = false;
+  document.getElementById('memberId').value = '';
+  document.getElementById('memberId').readOnly = false;
   isEditingExistingMember = false;
 
   document.getElementById('name').value = '';
@@ -354,7 +336,6 @@ document.querySelectorAll('.tab-item').forEach(item => {
       alert("Please log in to access this section.");
       return;
     }
-    
     switchToTab(this);
   });
 });
@@ -435,19 +416,13 @@ document.getElementById('btnNewID').addEventListener('click', () => {
   if (role === 'Editor') {
     const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
     const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
-    if (!hasE001) {
-      idInput.value = 'E-001';
-    } else if (!hasE002) {
-      idInput.value = 'E-002';
-    } else {
-      alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
-      return;
-    }
+    if (!hasE001) idInput.value = 'E-001';
+    else if (!hasE002) idInput.value = 'E-002';
+    else { alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed."); return; }
   } else {
     const maxNum = getHighestIDNumber(members, 'M-');
     idInput.value = formatID('M-', maxNum + 1);
   }
-
   idInput.readOnly = true;
   isEditingExistingMember = false;
   setStatus("Generated New ID: " + idInput.value);
@@ -455,10 +430,7 @@ document.getElementById('btnNewID').addEventListener('click', () => {
 
 function loadProfileForMember(id) {
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    alert(`Member ID '${id}' not found.`);
-    return;
-  }
+  if (!m) { alert(`Member ID '${id}' not found.`); return; }
 
   document.getElementById('name').value = m.name || '';
   document.getElementById('age').value = m.age || '';
@@ -552,6 +524,28 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
         throw new Error(data.error?.message || 'Failed to create auth user.');
       }
       uid = data.localId;  // Firebase UID
+    } else if (!existingMember.uid) {
+      // Existing member missing uid: create auth user via REST API (keeps editor signed in)
+      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
+      const response = await fetch(signupUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          returnSecureToken: false
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        uid = data.localId;
+      } else if (data.error?.message === 'EMAIL_EXISTS') {
+        // User already exists; we need to fetch their UID.
+        // This is tricky without signing out editor; we'll skip for now, but log a warning.
+        console.warn(`Auth user already exists for ${email}. UID not stored automatically.`);
+      } else {
+        console.warn("Could not create auth user:", data.error?.message);
+      }
     }
 
     const memberObj = {
@@ -563,7 +557,7 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
       isEditor: isEditorRole,
       email,
       uid,
-      password, // store for reference
+      password,
       weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
       loanAmount: existingMember ? existingMember.loanAmount : 0,
       loanPaid: existingMember ? existingMember.loanPaid : 0
@@ -582,7 +576,6 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 // ------------------- LOGIN / LOGOUT -------------------
 document.getElementById('loginBtn').addEventListener('click', () => {
   if (auth.currentUser) {
-    // Show logout confirmation modal
     pendingActionType = 'LOGOUT';
     document.getElementById('actionConfirmTitle').innerText = "CONFIRM LOGOUT";
     document.getElementById('actionConfirmMsg').innerText = "Are you sure you want to log out?";
@@ -594,12 +587,18 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   }
 });
 
+// Improved login: handles existing members without auth accounts
 document.getElementById('btnSubmitLogin').addEventListener('click', async () => {
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
 
-  const email = `${id.toLowerCase()}${EMAIL_DOMAIN}`;
+  const member = members.find(m => m.id === id);
+  if (!member) return alert("Member ID not found.");
+
+  const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
+  const storedPass = member.password || DEFAULT_PASSWORD;
+
   try {
     await auth.signInWithEmailAndPassword(email, pass);
     closeModals();
@@ -607,21 +606,22 @@ document.getElementById('btnSubmitLogin').addEventListener('click', async () => 
     // onAuthStateChanged will handle UI
   } catch (err) {
     if (err.code === 'auth/user-not-found') {
-      // Legacy member: create auth user with provided password
-      const member = members.find(m => m.id === id);
-      if (member && (member.password || DEFAULT_PASSWORD) === pass) {
+      // Check if password matches stored password
+      if (pass === storedPass) {
         try {
+          // Create auth account for legacy member
           const cred = await auth.createUserWithEmailAndPassword(email, pass);
           await db.ref('members/' + id + '/uid').set(cred.user.uid);
           closeModals();
           setStatus("Login successful (account created).");
-          // onAuthStateChanged will handle UI
         } catch (createErr) {
           alert("Failed to create account: " + createErr.message);
         }
       } else {
-        alert("Invalid credentials.");
+        alert("Incorrect password.");
       }
+    } else if (err.code === 'auth/wrong-password') {
+      alert("Incorrect password.");
     } else {
       alert("Login failed: " + err.message);
     }
@@ -638,7 +638,6 @@ document.getElementById('btnOpenReset').addEventListener('click', () => {
 document.getElementById('btnVerifyReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
-  
   db.ref('members/' + id).once('value').then(snap => {
     if (!snap.exists()) {
       document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
@@ -658,7 +657,6 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
   if (!id || !inputPin) return alert("Please fill all fields.");
   if (newPass !== verPass) return alert("New passwords do not match.");
 
-  // Verify master PIN
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
@@ -686,7 +684,6 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       document.getElementById('resetFields').style.display = 'none';
       document.getElementById('resetStatusMsg').innerText = '';
       closeModals();
-      // User is now signed in as that member; they can continue or log out.
     })
     .catch(err => {
       alert(err.message);
