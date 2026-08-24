@@ -1,4 +1,4 @@
-// APP.JS – Full version with email/password authentication, swipe navigation, privacy, logout confirmation
+// APP.JS – Full corrected version with REST API for new member creation, keeping editor logged in
 
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -25,6 +25,7 @@ let pendingActionType = null;
 let pendingTargetId = null;
 
 const DEFAULT_PASSWORD = "1234";
+const EMAIL_DOMAIN = "@maqali.com";
 
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
@@ -232,30 +233,50 @@ function hideLoginPrompt() {
 // ------------------- AUTH STATE HANDLER -------------------
 auth.onAuthStateChanged(user => {
   if (user) {
-    // User is signed in
-    const email = user.email || '';
-    const memberId = email.split('@')[0].toUpperCase(); // assumes format like M-001@maqali.com
-    db.ref('members').orderByChild('uid').equalTo(user.uid).once('value').then(snap => {
-      const memberData = snap.val();
-      if (memberData) {
-        const member = Object.values(memberData)[0];
-        if (member.isEditor) {
-          applyEditorUI(member.id);
+    // User is signed in; find member by uid
+    db.ref('members').orderByChild('uid').equalTo(user.uid).once('value')
+      .then(snap => {
+        const memberData = snap.val();
+        if (memberData) {
+          const member = Object.values(memberData)[0];
+          if (member.isEditor) {
+            applyEditorUI(member.id);
+          } else {
+            applyMemberUI(member.id);
+          }
+          setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
         } else {
-          applyMemberUI(member.id);
+          // Fallback: try match by email prefix (legacy)
+          const emailPrefix = user.email.split('@')[0].toUpperCase();
+          const legacyMember = members.find(m => m.id === emailPrefix);
+          if (legacyMember) {
+            // Update uid in database for future
+            db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
+            if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
+            else applyMemberUI(legacyMember.id);
+            setStatus(`Logged in as ${legacyMember.isEditor ? 'Editor' : 'Member'} ${legacyMember.id}`);
+          } else {
+            auth.signOut();
+            setViewerMode();
+            setStatus("User not found. Please contact an editor.");
+          }
         }
-        setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
-      } else {
-        // Member record not found
-        auth.signOut();
-        setViewerMode();
-        setStatus("User not found. Please contact an editor.");
-      }
-    }).catch(err => {
-      console.error("Auth state error:", err);
-      auth.signOut();
-      setViewerMode();
-    });
+      })
+      .catch(err => {
+        console.error("Auth query error:", err);
+        // Fallback to email prefix even on error
+        const emailPrefix = user.email.split('@')[0].toUpperCase();
+        const legacyMember = members.find(m => m.id === emailPrefix);
+        if (legacyMember) {
+          db.ref('members/' + legacyMember.id + '/uid').set(user.uid);
+          if (legacyMember.isEditor) applyEditorUI(legacyMember.id);
+          else applyMemberUI(legacyMember.id);
+          setStatus(`Logged in as ${legacyMember.isEditor ? 'Editor' : 'Member'} ${legacyMember.id}`);
+        } else {
+          auth.signOut();
+          setViewerMode();
+        }
+      });
   } else {
     // No user signed in
     restoreSession();
@@ -263,11 +284,8 @@ auth.onAuthStateChanged(user => {
 });
 
 function restoreSession() {
-  const savedId = localStorage.getItem('activeUserId');
-  if (savedId) {
-    // Legacy session? Not used for auth; clear it
-    localStorage.removeItem('activeUserId');
-  }
+  // We no longer use local storage for auth; just show viewer
+  localStorage.removeItem('activeUserId');
   setViewerMode();
 }
 
@@ -447,7 +465,7 @@ function loadProfileForMember(id) {
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
-  document.getElementById('email').value = m.email || `${m.id}@maqali.com`;
+  document.getElementById('email').value = m.email || `${m.id}${EMAIL_DOMAIN}`;
   document.getElementById('password').value = '';
 
   const payments = getPaymentsArray(m.weeklyPayments);
@@ -511,28 +529,29 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (typedId.startsWith('E-') && !isEditorRole) return alert("E- IDs must be Editor.");
   if (typedId.startsWith('M-') && isEditorRole) return alert("M- IDs cannot be Editor.");
 
-  // Determine email
-  const email = emailInput || `${typedId.toLowerCase()}@maqali.com`;
+  const email = emailInput || `${typedId.toLowerCase()}${EMAIL_DOMAIN}`;
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
   try {
     let uid = existingMember ? existingMember.uid : null;
 
     if (!existingMember) {
-      // Create new auth user
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      uid = userCredential.user.uid;
-    } else {
-      // Update existing member's auth if email or password changed
-      if (existingMember.email !== email) {
-        // Cannot update email without re-authentication; not supported in this simple version
-        console.warn("Email change not supported automatically.");
+      // Create Auth user via REST API to keep editor signed in
+      const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`;
+      const response = await fetch(signupUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          returnSecureToken: false
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to create auth user.');
       }
-      if (passwordInput && existingMember.password !== passwordInput) {
-        // Update password in auth (requires current user logged in as that user, but editor is logged in)
-        // We'll skip for now; editor can use reset flow.
-        console.warn("Password change via profile edit not supported. Use reset flow.");
-      }
+      uid = data.localId;  // Firebase UID
     }
 
     const memberObj = {
@@ -575,23 +594,38 @@ document.getElementById('loginBtn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btnSubmitLogin').addEventListener('click', () => {
+document.getElementById('btnSubmitLogin').addEventListener('click', async () => {
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
 
-  // Use email derived from member ID
-  const email = `${id.toLowerCase()}@maqali.com`;
-
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(userCredential => {
-      // Success: onAuthStateChanged will handle UI
-      closeModals();
-      setStatus("Login successful.");
-    })
-    .catch(err => {
+  const email = `${id.toLowerCase()}${EMAIL_DOMAIN}`;
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    closeModals();
+    setStatus("Login successful.");
+    // onAuthStateChanged will handle UI
+  } catch (err) {
+    if (err.code === 'auth/user-not-found') {
+      // Legacy member: create auth user with provided password
+      const member = members.find(m => m.id === id);
+      if (member && (member.password || DEFAULT_PASSWORD) === pass) {
+        try {
+          const cred = await auth.createUserWithEmailAndPassword(email, pass);
+          await db.ref('members/' + id + '/uid').set(cred.user.uid);
+          closeModals();
+          setStatus("Login successful (account created).");
+          // onAuthStateChanged will handle UI
+        } catch (createErr) {
+          alert("Failed to create account: " + createErr.message);
+        }
+      } else {
+        alert("Invalid credentials.");
+      }
+    } else {
       alert("Login failed: " + err.message);
-    });
+    }
+  }
 });
 
 // ------------------- PASSWORD RECOVERY -------------------
@@ -630,28 +664,21 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       const actualPin = snap.val();
       if (!actualPin) throw new Error("Master PIN missing.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      // Get member record
       return db.ref('members/' + id).once('value');
     })
     .then(memberSnap => {
       if (!memberSnap.exists()) throw new Error("Member ID not found.");
       const member = memberSnap.val();
-      const email = member.email || `${id.toLowerCase()}@maqali.com`;
+      const email = member.email || `${id.toLowerCase()}${EMAIL_DOMAIN}`;
       const oldPass = member.password || DEFAULT_PASSWORD;
-      // Sign in with old password to update
-      return auth.signInWithEmailAndPassword(email, oldPass)
-        .then(userCredential => {
-          // Update password in Firebase Auth
-          return userCredential.user.updatePassword(newPass);
-        })
-        .then(() => {
-          // Update password in database
-          return db.ref('members/' + id + '/password').set(newPass);
-        });
+      // Sign out current user first to avoid session conflict
+      return auth.signOut()
+        .then(() => auth.signInWithEmailAndPassword(email, oldPass))
+        .then(userCredential => userCredential.user.updatePassword(newPass))
+        .then(() => db.ref('members/' + id + '/password').set(newPass));
     })
     .then(() => {
       alert(`Password for ${id} updated successfully!`);
-      // Clear reset form
       document.getElementById('resetIdInput').value = '';
       document.getElementById('resetMasterPin').value = '';
       document.getElementById('resetNewPass').value = '';
@@ -659,6 +686,7 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       document.getElementById('resetFields').style.display = 'none';
       document.getElementById('resetStatusMsg').innerText = '';
       closeModals();
+      // User is now signed in as that member; they can continue or log out.
     })
     .catch(err => {
       alert(err.message);
