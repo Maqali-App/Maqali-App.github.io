@@ -449,9 +449,9 @@ function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
 
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 120) {
     const visibleTabs = getVisibleTabs();
-    if (visibleTabs.length === 0) return;
+    if (visibleTabs.length === 2) return;
 
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
