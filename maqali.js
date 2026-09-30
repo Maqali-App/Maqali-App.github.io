@@ -429,17 +429,38 @@ function switchToTab(tabItem) {
 // SECTION 19: SWIPE NAVIGATION
 // Requires: 100px horizontal, faster than 500ms, mostly horizontal.
 // ================================================================
+
+
+
+// ------------------- SWIPE NAVIGATION (strict) -------------------
 const tabContainer = document.getElementById('tabContainer');
-let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0, touchStartTime = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+let touchStartTime = 0;
+let isPinchOrZoom = false;
 
 if (tabContainer) {
   tabContainer.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+      isPinchOrZoom = true;
+      return;
+    }
+    isPinchOrZoom = false;
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
     touchStartTime = Date.now();
   }, { passive: true });
 
+  tabContainer.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) isPinchOrZoom = true;
+  }, { passive: true });
+
   tabContainer.addEventListener('touchend', (e) => {
+    if (isPinchOrZoom) { isPinchOrZoom = false; return; }
+    if (e.touches.length > 0) return;
+
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
     handleSwipe();
@@ -450,15 +471,25 @@ function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
   const elapsed = Date.now() - touchStartTime;
+  const velocity = Math.abs(deltaX) / elapsed; // pixels per millisecond
 
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50 && elapsed < 5000) {
+  // Strict rules: mostly horizontal, 150px+, fast, high velocity
+  const mostlyHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 2;
+  const longEnough = Math.abs(deltaX) > 150;
+  const fastEnough = elapsed < 400;
+  const highVelocity = velocity > 0.5;
+
+  if (mostlyHorizontal && longEnough && fastEnough && highVelocity) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
+
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
+
     let newIndex;
     if (deltaX < 0) newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
     else newIndex = Math.max(currentIndex - 1, 0);
+
     if (newIndex !== currentIndex) {
       switchToTab(visibleTabs[newIndex]);
       localStorage.setItem('maqali_active_tab', visibleTabs[newIndex].getAttribute('data-tab'));
@@ -467,13 +498,17 @@ function handleSwipe() {
 }
 
 function getVisibleTabs() {
-  return Array.from(document.querySelectorAll('.tab-item')).filter(t => t.style.display !== 'none');
+  return Array.from(document.querySelectorAll('.tab-item')).filter(tab => {
+    return tab.style.display !== 'none';
+  });
 }
 
 function getCurrentTabIndex(visibleTabs) {
   const activeTab = document.querySelector('.tab-item.active');
   return visibleTabs.indexOf(activeTab);
 }
+
+
 
 // ================================================================
 // SECTION 20: MODAL HELPERS
