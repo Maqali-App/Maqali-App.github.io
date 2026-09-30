@@ -1,5 +1,7 @@
-// APP.JS – Full version with no-flash refresh, session persistence, tab restoration, inactivity logout
-
+// ================================================================
+// SECTION 1: FIREBASE CONFIGURATION
+// Purpose: Keys that identify your Firebase project.
+// ================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
   authDomain: "maqali-app-83b95.firebaseapp.com",
@@ -11,32 +13,53 @@ const firebaseConfig = {
   measurementId: "G-RE6DXYQ0RL"
 };
 
+// ================================================================
+// SECTION 2: FIREBASE INITIALIZATION
+// Purpose: Start Firebase app, database, and authentication services.
+// ================================================================
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
-// Temporary anonymous sign-in for read access (guest)
-auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
-
-// Add loading and no-animation classes to hide content and prevent transition during restore
+// ================================================================
+// SECTION 3: DIAGNOSTIC + LOADING STATE
+// Purpose: Confirm script runs, and hide the UI while we restore the session.
+// If you see "Script loaded, initializing..." the script is running.
+// ================================================================
+document.getElementById('statusBanner').innerText = "STATUS: Script loaded, initializing...";
 document.body.classList.add('app-loading', 'no-tab-animation');
 
+// ================================================================
+// SECTION 4: ANONYMOUS SIGN-IN (for read access)
+// Purpose: Gives the browser a valid auth token to read the database.
+// ================================================================
+auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
+
+// ================================================================
+// SECTION 5: GLOBAL STATE VARIABLES
+// Purpose: Track the current user, role, and pending actions.
+// ================================================================
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer";  // "viewer", "member", or "editor"
+let activeUserRole = "viewer"; // "viewer" | "member" | "editor"
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
 let pendingTargetId = null;
 let membersListener = null;
-
-const DEFAULT_PASSWORD = "1234";
-const EMAIL_DOMAIN = "@maqali.com"; // kept for reference if needed
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-
 let inactivityTimer = null;
 
+// ================================================================
+// SECTION 6: CONSTANTS
+// ================================================================
+const DEFAULT_PASSWORD = "1234";
+const EMAIL_DOMAIN = "@maqali.com";
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+// ================================================================
+// SECTION 7: UTILITY FUNCTIONS
+// ================================================================
 function getHighestIDNumber(memberList, prefix) {
   let maxNum = 0;
   memberList.forEach(member => {
@@ -58,11 +81,13 @@ function setStatus(msg) {
 
 function maskID(id) {
   if (!id) return 'N/A';
-  const prefix = id.charAt(0);
-  return prefix + '-***';
+  return id.charAt(0) + '-***';
 }
 
-// ------------------- SESSION HELPERS -------------------
+// ================================================================
+// SECTION 8: SESSION HELPERS
+// Purpose: Remember the logged-in user across page refreshes.
+// ================================================================
 function saveSession(userId, role, tab) {
   localStorage.setItem('maqali_active_user', userId);
   localStorage.setItem('maqali_active_role', role);
@@ -83,7 +108,10 @@ function getStoredSession() {
   };
 }
 
-// ------------------- INACTIVITY LOGOUT -------------------
+// ================================================================
+// SECTION 9: INACTIVITY TIMER
+// Purpose: Auto-logout after 5 minutes of no user activity.
+// ================================================================
 function resetInactivityTimer() {
   if (inactivityTimer) clearTimeout(inactivityTimer);
   inactivityTimer = setTimeout(() => {
@@ -102,7 +130,9 @@ function stopInactivityTimer() {
   inactivityTimer = null;
 }
 
-// ------------------- UI STATE MANAGEMENT -------------------
+// ================================================================
+// SECTION 10: UI STATE FUNCTIONS
+// ================================================================
 function setViewerMode() {
   isEditor = false;
   activeUserId = "";
@@ -110,7 +140,7 @@ function setViewerMode() {
   document.getElementById('roleBadge').innerText = "Role: Viewer (Not Logged In)";
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Member Login";
-  
+
   updateTabsVisibility();
   lockAllTabs();
   showLoginPrompt();
@@ -129,7 +159,7 @@ function applyEditorUI(editorId) {
   document.getElementById('roleBadge').innerText = `Role: Editor (${editorId})`;
   document.getElementById('roleBadge').style.background = "#28a745";
   document.getElementById('loginBtn').innerText = "Logout";
-  
+
   updateTabsVisibility();
   unlockAllTabs();
   hideLoginPrompt();
@@ -144,7 +174,7 @@ function applyMemberUI(memberId) {
   document.getElementById('roleBadge').innerText = `Role: Member (${memberId})`;
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Logout";
-  
+
   updateTabsVisibility();
   unlockAllTabs();
   hideLoginPrompt();
@@ -153,8 +183,7 @@ function applyMemberUI(memberId) {
 
   ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
     const el = document.getElementById(fid);
-    el.value = memberId;
-    el.readOnly = true;
+    if (el) { el.value = memberId; el.readOnly = true; }
   });
 
   loadProfileForMember(memberId);
@@ -163,9 +192,11 @@ function applyMemberUI(memberId) {
   renderMembers();
 }
 
+// ================================================================
+// SECTION 11: TAB VISIBILITY & LOCKING
+// ================================================================
 function updateTabsVisibility() {
   const tabItems = document.querySelectorAll('.tab-item');
-  
   if (activeUserRole === "viewer") {
     tabItems.forEach(tab => {
       const tabName = tab.getAttribute('data-tab');
@@ -190,29 +221,24 @@ function lockAllTabs() {
 
 function unlockAllTabs() {
   document.querySelectorAll('input, select, button').forEach(el => {
-    if (!el.closest('.modal-overlay')) {
-      el.disabled = false;
-    }
+    if (!el.closest('.modal-overlay')) el.disabled = false;
   });
-
   if (activeUserRole === "member") {
     ['memberId', 'weeklyMemberId', 'loansMemberId'].forEach(fid => {
-      const field = document.getElementById(fid);
-      if (field) {
-        field.readOnly = true;
-        field.disabled = false;
-      }
+      const f = document.getElementById(fid);
+      if (f) { f.readOnly = true; f.disabled = false; }
     });
   }
 }
 
 function enableModalElements(modalId) {
-  document.querySelectorAll(`#${modalId} input, #${modalId} select, #${modalId} button`).forEach(el => {
-    el.disabled = false;
-  });
+  document.querySelectorAll(`#${modalId} input, #${modalId} select, #${modalId} button`)
+    .forEach(el => { el.disabled = false; });
 }
 
-// ------------------- MEMBERS LISTENER MANAGEMENT -------------------
+// ================================================================
+// SECTION 12: MEMBERS LISTENER
+// ================================================================
 function attachMembersListener() {
   if (membersListener) return;
   membersListener = db.ref('members').on('value', (snapshot) => {
@@ -232,61 +258,30 @@ function detachMembersListener() {
   }
 }
 
-// ------------------- LOGIN PROMPT OVERLAY -------------------
+// ================================================================
+// SECTION 13: LOGIN PROMPT OVERLAY
+// ================================================================
 function showLoginPrompt() {
   hideLoginPrompt();
-
   const overlay = document.createElement('div');
   overlay.id = 'loginPromptOverlay';
   overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    padding: 15px;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75); display: flex; align-items: center;
+    justify-content: center; z-index: 9999; padding: 15px;
   `;
-
   overlay.innerHTML = `
-    <div style="
-      background: #000028;
-      border: 1px solid #007AFF;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      max-width: 340px;
-      width: 100%;
-      color: #ffd700;
-      font-size: 14px;
-      font-weight: bold;
-    ">
-      <div style="margin-bottom: 10px;">🔒 ACCESS RESTRICTED</div>
-      <div style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
-        Please log in to view your data.<br>
-        Contact an editor if you don't have an account.
+    <div style="background:#000028;border:1px solid #007AFF;border-radius:8px;padding:20px;text-align:center;max-width:340px;width:100%;color:#ffd700;font-size:14px;font-weight:bold;">
+      <div style="margin-bottom:10px;">🔒 ACCESS RESTRICTED</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:15px;">
+        Please log in to view your data.<br>Contact an editor if you don't have an account.
       </div>
-      <button id="loginPromptBtn" style="
-        background: #007AFF;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        padding: 10px 20px;
-        font-size: 12px;
-        font-weight: bold;
-        cursor: pointer;
-      ">
+      <button id="loginPromptBtn" style="background:#007AFF;color:#fff;border:none;border-radius:4px;padding:10px 20px;font-size:12px;font-weight:bold;cursor:pointer;">
         Login Now
       </button>
     </div>
   `;
-
   document.body.appendChild(overlay);
-
   document.getElementById('loginPromptBtn').addEventListener('click', () => {
     enableModalElements('modalLogin');
     document.getElementById('modalLogin').classList.add('active');
@@ -298,10 +293,12 @@ function hideLoginPrompt() {
   if (overlay) overlay.remove();
 }
 
-// ------------------- AUTH STATE HANDLER (anonymous only) -------------------
+// ================================================================
+// SECTION 14: AUTH STATE HANDLER
+// Purpose: Restores session on load, or shows viewer mode.
+// ================================================================
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
-    // Restore previous session if any
     const stored = getStoredSession();
     if (stored.userId && stored.role) {
       fetchMemberById(stored.userId).then(member => {
@@ -314,16 +311,15 @@ auth.onAuthStateChanged(user => {
             clearSession();
             setViewerMode();
           }
-          // Restore active tab
           if (stored.tab) {
-            const tabItem = Array.from(document.querySelectorAll('.tab-item')).find(t => t.getAttribute('data-tab') === stored.tab);
+            const tabItem = Array.from(document.querySelectorAll('.tab-item'))
+              .find(t => t.getAttribute('data-tab') === stored.tab);
             if (tabItem) switchToTab(tabItem);
           }
         } else {
           clearSession();
           setViewerMode();
         }
-        // Remove loading and no-animation classes after restore
         document.body.classList.remove('no-tab-animation');
         document.body.classList.remove('app-loading');
       }).catch(() => {
@@ -337,17 +333,14 @@ auth.onAuthStateChanged(user => {
       document.body.classList.remove('no-tab-animation');
       document.body.classList.remove('app-loading');
     }
-  } else {
-    // Should not happen (we only use anonymous), but if non-anonymous, sign out and anon
-    if (user) {
-      auth.signOut().then(() => auth.signInAnonymously());
-    } else {
-      auth.signInAnonymously();
-    }
+  } else if (!user) {
+    auth.signInAnonymously();
   }
 });
 
-// ------------------- DATA HELPERS -------------------
+// ================================================================
+// SECTION 15: DATA HELPERS
+// ================================================================
 function getPaymentsArray(raw) {
   if (!raw) return new Array(50).fill('');
   if (Array.isArray(raw)) return raw;
@@ -359,7 +352,6 @@ function getPaymentsArray(raw) {
   return arr;
 }
 
-// Helper to fetch member by ID directly from database (fallback)
 async function fetchMemberById(id) {
   try {
     const snap = await db.ref('members/' + id).once('value');
@@ -375,7 +367,6 @@ function clearProfileForm() {
   idInput.value = '';
   idInput.readOnly = false;
   isEditingExistingMember = false;
-
   document.getElementById('name').value = '';
   document.getElementById('age').value = '';
   document.getElementById('phone').value = '';
@@ -390,31 +381,38 @@ function clearProfileForm() {
   document.getElementById('profNetBalance').innerText = '₦0';
 }
 
-// ------------------- BUILD WEEKLY GRID -------------------
+// ================================================================
+// SECTION 16: WEEKLY GRID BUILDER
+// ================================================================
 const grid = document.getElementById('grid50');
-for (let i = 0; i < 50; i++) {
-  grid.innerHTML += `
-    <div class="grid-cell">
-      <span class="grid-label">Wk ${i + 1}</span>
-      <input type="number" class="grid-input" id="wk_${i}">
-    </div>`;
+if (grid) {
+  for (let i = 0; i < 50; i++) {
+    grid.innerHTML += `
+      <div class="grid-cell">
+        <span class="grid-label">Wk ${i + 1}</span>
+        <input type="number" class="grid-input" id="wk_${i}">
+      </div>`;
+  }
 }
 
-// ------------------- CONNECTION LISTENER -------------------
+// ================================================================
+// SECTION 17: CONNECTION LISTENER
+// ================================================================
 db.ref('.info/connected').on('value', (snap) => {
   if (snap.val() === true) setStatus("Connected to Cloud Database.");
   else setStatus("Connecting / Disconnected from Cloud Server...");
 });
 
-// ------------------- SLIDING TABS (Click) -------------------
+// ================================================================
+// SECTION 18: TAB CLICK NAVIGATION
+// ================================================================
 document.querySelectorAll('.tab-item').forEach(item => {
-  item.addEventListener('click', function() {
+  item.addEventListener('click', function () {
     if (activeUserRole === "viewer" && this.getAttribute('data-tab') !== 'Profile') {
       alert("Please log in to access this section.");
       return;
     }
     switchToTab(this);
-    // Save active tab for restoration
     localStorage.setItem('maqali_active_tab', this.getAttribute('data-tab'));
   });
 });
@@ -427,55 +425,40 @@ function switchToTab(tabItem) {
   document.getElementById('tab-' + tabName).classList.add('active');
 }
 
-// ------------------- SWIPE NAVIGATION -------------------
+// ================================================================
+// SECTION 19: SWIPE NAVIGATION
+// Requires: 100px horizontal, faster than 500ms, mostly horizontal.
+// ================================================================
 const tabContainer = document.getElementById('tabContainer');
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
-let touchStartTime = 0;
+let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0, touchStartTime = 0;
 
-tabContainer.addEventListener('touchstart', (e) => {
-  touchStartX = e.changedTouches[0].screenX;
-  touchStartY = e.changedTouches[0].screenY;
-  touchStartTime = Date.now();
-}, { passive: true });
+if (tabContainer) {
+  tabContainer.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+    touchStartTime = Date.now();
+  }, { passive: true });
 
-tabContainer.addEventListener('touchend', (e) => {
-  touchEndX = e.changedTouches[0].screenX;
-  touchEndY = e.changedTouches[0].screenY;
-  
-  handleSwipe();
-}, { passive: true });
+  tabContainer.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
+    handleSwipe();
+  }, { passive: true });
+}
 
 function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
-  const elapsed = Date.now() -touchStartTime;
+  const elapsed = Date.now() - touchStartTime;
 
-    // Require:
-  // 1. Horizontal movement larger than vertical (not a scroll)
-  // 2. At least 120px of horizontal travel
-  // 3. Completed within 500ms (a deliberate swipe, not a slow drag)
-
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100 &&
-      elapsed < 500) {
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100 && elapsed < 500) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
-    
-
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
-
     let newIndex;
-    if (deltaX < 0) {
-      // Swipe left --> next Tab
-      newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
-    } else {
-            // Swipe Right --> Previous Tab
-      newIndex = Math.max(currentIndex - 1, 0);
-    }
-
+    if (deltaX < 0) newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
+    else newIndex = Math.max(currentIndex - 1, 0);
     if (newIndex !== currentIndex) {
       switchToTab(visibleTabs[newIndex]);
       localStorage.setItem('maqali_active_tab', visibleTabs[newIndex].getAttribute('data-tab'));
@@ -484,9 +467,7 @@ function handleSwipe() {
 }
 
 function getVisibleTabs() {
-  return Array.from(document.querySelectorAll('.tab-item')).filter(tab => {
-    return tab.style.display !== 'none';
-  });
+  return Array.from(document.querySelectorAll('.tab-item')).filter(t => t.style.display !== 'none');
 }
 
 function getCurrentTabIndex(visibleTabs) {
@@ -494,34 +475,32 @@ function getCurrentTabIndex(visibleTabs) {
   return visibleTabs.indexOf(activeTab);
 }
 
+// ================================================================
+// SECTION 20: MODAL HELPERS
+// ================================================================
 function closeModals() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
 }
 document.querySelectorAll('.btn-close-modal').forEach(b => b.addEventListener('click', closeModals));
 
-// ------------------- PROFILE TAB -------------------
+// ================================================================
+// SECTION 21: PROFILE TAB HANDLERS
+// ================================================================
 document.getElementById('btnNewID').addEventListener('click', () => {
   if (!isEditor) return alert("Action Denied: Only Editors can create new IDs.");
   const role = document.getElementById('roleType').value;
   clearProfileForm();
   const idInput = document.getElementById('memberId');
-  
   if (role === 'Editor') {
     const hasE001 = members.some(m => m.id && m.id.toUpperCase() === 'E-001');
     const hasE002 = members.some(m => m.id && m.id.toUpperCase() === 'E-002');
-    if (!hasE001) {
-      idInput.value = 'E-001';
-    } else if (!hasE002) {
-      idInput.value = 'E-002';
-    } else {
-      alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed.");
-      return;
-    }
+    if (!hasE001) idInput.value = 'E-001';
+    else if (!hasE002) idInput.value = 'E-002';
+    else { alert("Maximum Editor limit reached! Only E-001 and E-002 are allowed."); return; }
   } else {
     const maxNum = getHighestIDNumber(members, 'M-');
     idInput.value = formatID('M-', maxNum + 1);
   }
-
   idInput.readOnly = true;
   isEditingExistingMember = false;
   setStatus("Generated New ID: " + idInput.value);
@@ -531,19 +510,14 @@ async function loadProfileForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) {
     m = await fetchMemberById(id);
-    if (!m) {
-      alert(`Member ID '${id}' not found.`);
-      return;
-    }
+    if (!m) { alert(`Member ID '${id}' not found.`); return; }
   }
-
   document.getElementById('name').value = m.name || '';
   document.getElementById('age').value = m.age || '';
   document.getElementById('phone').value = m.phone || '';
   document.getElementById('familyTies').value = m.familyTies || '';
   document.getElementById('roleType').value = m.isEditor ? 'Editor' : 'Member';
   document.getElementById('password').value = '';
-
   const payments = getPaymentsArray(m.weeklyPayments);
   const wPaid = payments.filter(val => val !== "" && val !== null && !isNaN(val)).length;
   const amountSaved = payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
@@ -551,14 +525,12 @@ async function loadProfileForMember(id) {
   const lPaid = parseFloat(m.loanPaid) || 0;
   const lBal = Math.max(0, lAmt - lPaid);
   const netBal = amountSaved - lBal;
-
   document.getElementById('profWeeksPaid').innerText = wPaid;
   document.getElementById('profAmountSaved').innerText = `₦${amountSaved.toLocaleString()}`;
   document.getElementById('profLoanAmount').innerText = `₦${lAmt.toLocaleString()}`;
   document.getElementById('profLoanPaid').innerText = `₦${lPaid.toLocaleString()}`;
   document.getElementById('profLoanBalance').innerText = `₦${lBal.toLocaleString()}`;
   document.getElementById('profNetBalance').innerText = `₦${netBal.toLocaleString()}`;
-
   document.getElementById('memberId').value = id;
   document.getElementById('memberId').readOnly = true;
   isEditingExistingMember = true;
@@ -566,10 +538,7 @@ async function loadProfileForMember(id) {
 }
 
 document.getElementById('btnLoadProfile').addEventListener('click', async () => {
-  if (activeUserRole === "member") {
-    await loadProfileForMember(activeUserId);
-    return;
-  }
+  if (activeUserRole === "member") { await loadProfileForMember(activeUserId); return; }
   const inputId = document.getElementById('memberId').value.trim().toUpperCase();
   if (!inputId) return alert("Please enter a Member ID to load!");
   await loadProfileForMember(inputId);
@@ -577,16 +546,14 @@ document.getElementById('btnLoadProfile').addEventListener('click', async () => 
 
 document.getElementById('btnSaveMember').addEventListener('click', async () => {
   if (!isEditor) return alert("Action Denied: You must be logged in as an Editor.");
-
   const typedId = document.getElementById('memberId').value.trim().toUpperCase();
   const name = document.getElementById('name').value.trim();
   const passwordInput = document.getElementById('password').value.trim();
 
   if (!typedId || !name) return alert("Please enter both Member ID and Name.");
-  if (!typedId.startsWith('M-') && !typedId.startsWith('E-')) 
+  if (!typedId.startsWith('M-') && !typedId.startsWith('E-'))
     return alert("Security Alert: Invalid ID format! IDs must start with 'M-' or 'E-'.");
-
-  if (typedId.startsWith('E-') && typedId !== 'E-001' && typedId !== 'E-002') 
+  if (typedId.startsWith('E-') && typedId !== 'E-001' && typedId !== 'E-002')
     return alert("Invalid Editor ID. Only E-001 and E-002 are allowed.");
 
   const existingMember = members.find(m => m.id && m.id.toUpperCase() === typedId);
@@ -606,41 +573,20 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
-  //const memberObj = {
-    //id: typedId,
-    //name,
-   // age: document.getElementById('age').value,
-   // phone: document.getElementById('phone').value,
-   // familyTies: document.getElementById('familyTies').value,
-    //isEditor: isEditorRole,
-    //email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-    //uid: existingMember ? existingMember.uid : null,
-    //password,
-    //weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-   // loanAmount: existingMember ? existingMember.loanAmount : 0,
-    //loanPaid: existingMember ? existingMember.loanPaid : 0
-  //};
-
-
-   const memberObj = {
-  id: typedId,
-  name,
-  age: document.getElementById('age').value,
-  phone: document.getElementById('phone').value,
-  familyTies: document.getElementById('familyTies').value,
-  isEditor: isEditorRole,
-  email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-  uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
-  password,
-  weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-  loanAmount: existingMember ? existingMember.loanAmount : 0,
-  loanPaid: existingMember ? existingMember.loanPaid : 0
-};
-
-
-
-
-  
+  const memberObj = {
+    id: typedId,
+    name,
+    age: document.getElementById('age').value,
+    phone: document.getElementById('phone').value,
+    familyTies: document.getElementById('familyTies').value,
+    isEditor: isEditorRole,
+    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+    uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
+    password,
+    weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+    loanAmount: existingMember ? existingMember.loanAmount : 0,
+    loanPaid: existingMember ? existingMember.loanPaid : 0
+  };
 
   try {
     await db.ref('members/' + typedId).set(memberObj);
@@ -653,7 +599,9 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
   }
 });
 
-// ------------------- LOGIN / LOGOUT (database-only) -------------------
+// ================================================================
+// SECTION 22: LOGIN / LOGOUT
+// ================================================================
 document.getElementById('loginBtn').addEventListener('click', () => {
   if (activeUserId) {
     pendingActionType = 'LOGOUT';
@@ -671,19 +619,12 @@ document.getElementById('btnSubmitLogin').addEventListener('click', async () => 
   const id = document.getElementById('loginIdInput').value.trim().toUpperCase();
   const pass = document.getElementById('loginPassInput').value;
   if (!id) return alert("Please enter your Member ID.");
-
   const member = await fetchMemberById(id);
   if (!member) return alert("Member ID not found.");
-
   const storedPass = member.password || DEFAULT_PASSWORD;
   if (pass === storedPass) {
-    if (member.isEditor) {
-      applyEditorUI(member.id);
-      saveSession(member.id, 'editor');
-    } else {
-      applyMemberUI(member.id);
-      saveSession(member.id, 'member');
-    }
+    if (member.isEditor) { applyEditorUI(member.id); saveSession(member.id, 'editor'); }
+    else { applyMemberUI(member.id); saveSession(member.id, 'member'); }
     closeModals();
     setStatus(`Logged in as ${member.isEditor ? 'Editor' : 'Member'} ${member.id}`);
     resetInactivityTimer();
@@ -692,7 +633,9 @@ document.getElementById('btnSubmitLogin').addEventListener('click', async () => 
   }
 });
 
-// ------------------- PASSWORD RECOVERY (database-only) -------------------
+// ================================================================
+// SECTION 23: PASSWORD RECOVERY
+// ================================================================
 document.getElementById('btnOpenReset').addEventListener('click', () => {
   closeModals();
   enableModalElements('modalReset');
@@ -723,14 +666,11 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const verPass = document.getElementById('resetVerPass').value;
   if (!id || !inputPin) return alert("Please fill all fields.");
   if (newPass !== verPass) return alert("New passwords do not match.");
-
-  // 1. Verify Master PIN
   db.ref('system/masterPin').once('value')
     .then(snap => {
       const actualPin = snap.val();
       if (!actualPin) throw new Error("Master PIN missing. Please set it in the database under system/masterPin.");
       if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      // 2. Update password directly in database
       return db.ref('members/' + id + '/password').set(newPass);
     })
     .then(() => {
@@ -743,32 +683,27 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
       document.getElementById('resetStatusMsg').innerText = '';
       closeModals();
     })
-    .catch(err => {
-      alert(err.message);
-    });
+    .catch(err => { alert(err.message); });
 });
 
-// ------------------- WEEKLY TAB -------------------
+// ================================================================
+// SECTION 24: WEEKLY TAB HANDLERS
+// ================================================================
 async function loadWeeklyForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    m = await fetchMemberById(id);
-    if (!m) return alert(`Member ID ${id} not found.`);
-  }
+  if (!m) { m = await fetchMemberById(id); if (!m) return alert(`Member ID ${id} not found.`); }
   document.getElementById('weeklyMemberId').value = id;
   document.getElementById('weeklyMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const payments = getPaymentsArray(m.weeklyPayments);
   for (let i = 0; i < 50; i++) {
-    document.getElementById(`wk_${i}`).value = payments[i] !== undefined ? payments[i] : '';
+    const el = document.getElementById(`wk_${i}`);
+    if (el) el.value = payments[i] !== undefined ? payments[i] : '';
   }
   setStatus(`Weekly grid loaded for ${id} (${m.name})`);
 }
 
 document.getElementById('btnLoadWeekly').addEventListener('click', async () => {
-  if (activeUserRole === "member") {
-    await loadWeeklyForMember(activeUserId);
-    return;
-  }
+  if (activeUserRole === "member") { await loadWeeklyForMember(activeUserId); return; }
   const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
   await loadWeeklyForMember(id);
@@ -780,26 +715,19 @@ document.getElementById('btnSavePayments').addEventListener('click', () => {
   if (!id) return alert("Enter Member ID first.");
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) return alert(`Member ID ${id} not found.`);
-
   const payments = [];
-  for (let i = 0; i < 50; i++) {
-    payments.push(document.getElementById(`wk_${i}`).value);
-  }
+  for (let i = 0; i < 50; i++) payments.push(document.getElementById(`wk_${i}`).value);
   db.ref(`members/${id}/weeklyPayments`).set(payments)
-    .then(() => {
-      alert("Weekly payments saved!");
-      setStatus(`Weekly payments saved for ${id}`);
-    })
+    .then(() => { alert("Weekly payments saved!"); setStatus(`Weekly payments saved for ${id}`); })
     .catch(err => alert("Save failed: " + err.message));
 });
 
-// ------------------- LOANS TAB -------------------
+// ================================================================
+// SECTION 25: LOANS TAB HANDLERS
+// ================================================================
 async function loadLoansForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
-  if (!m) {
-    m = await fetchMemberById(id);
-    if (!m) return alert(`Member ID ${id} not found.`);
-  }
+  if (!m) { m = await fetchMemberById(id); if (!m) return alert(`Member ID ${id} not found.`); }
   document.getElementById('loansMemberId').value = id;
   document.getElementById('loansMemberName').innerText = `Member: ${m.name || 'Unnamed'}`;
   const lAmt = parseFloat(m.loanAmount) || 0;
@@ -812,10 +740,7 @@ async function loadLoansForMember(id) {
 }
 
 document.getElementById('btnLoadLoans').addEventListener('click', async () => {
-  if (activeUserRole === "member") {
-    await loadLoansForMember(activeUserId);
-    return;
-  }
+  if (activeUserRole === "member") { await loadLoansForMember(activeUserId); return; }
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   if (!id) return alert("Please enter a Member ID.");
   await loadLoansForMember(id);
@@ -851,7 +776,9 @@ document.getElementById('btnPayLoan').addEventListener('click', () => {
   });
 });
 
-// ------------------- MEMBERS LIST (with privacy) -------------------
+// ================================================================
+// SECTION 26: MEMBERS LIST (SEARCH / DELETE / RESET)
+// ================================================================
 document.getElementById('btnSearchMember').addEventListener('click', () => {
   const query = document.getElementById('searchMemberId').value.trim();
   renderMembers(query);
@@ -884,6 +811,9 @@ document.getElementById('btnGeneralReset').addEventListener('click', () => {
   document.getElementById('modalSecurityPin').classList.add('active');
 });
 
+// ================================================================
+// SECTION 27: CONFIRM MODAL HANDLER (DELETE / RESET / LOGOUT)
+// ================================================================
 document.getElementById('btnVerifySecurityPin').addEventListener('click', () => {
   const inputPin = document.getElementById('securityPinInput').value.trim();
   if (!inputPin) return alert("Please enter Admin Security PIN.");
@@ -895,14 +825,12 @@ document.getElementById('btnVerifySecurityPin').addEventListener('click', () => 
 
     if (pendingActionType === 'DELETE') {
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
-      const name = m ? m.name : pendingTargetId;
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM DELETION";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to delete member ${name} (${pendingTargetId})?`;
+      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to delete member ${m ? m.name : pendingTargetId} (${pendingTargetId})?`;
     } else if (pendingActionType === 'RESET_SINGLE') {
       const m = members.find(mem => mem.id && mem.id.toUpperCase() === pendingTargetId);
-      const name = m ? m.name : pendingTargetId;
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM MEMBER RESET";
-      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to reset financial records for ${name} (${pendingTargetId})?`;
+      document.getElementById('actionConfirmMsg').innerText = `Are you sure you want to reset financial records for ${m ? m.name : pendingTargetId} (${pendingTargetId})?`;
     } else if (pendingActionType === 'RESET_ALL') {
       document.getElementById('actionConfirmTitle').innerText = "CONFIRM RESET ALL MEMBERS";
       document.getElementById('actionConfirmMsg').innerText = "DANGER: This will reset all financial records for ALL members. Continue?";
@@ -914,28 +842,22 @@ document.getElementById('btnVerifySecurityPin').addEventListener('click', () => 
 document.getElementById('btnExecuteAction').addEventListener('click', () => {
   if (pendingActionType === 'DELETE') {
     if (!pendingTargetId) return;
-    db.ref('members/' + pendingTargetId).remove()
-      .then(() => {
-        alert(`Member ${pendingTargetId} deleted.`);
-        setStatus(`Member ${pendingTargetId} deleted.`);
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Delete failed: " + err.message));
+    db.ref('members/' + pendingTargetId).remove().then(() => {
+      alert(`Member ${pendingTargetId} deleted.`);
+      setStatus(`Member ${pendingTargetId} deleted.`);
+      closeModals(); resetPendingAction();
+    }).catch(err => alert("Delete failed: " + err.message));
   } else if (pendingActionType === 'RESET_SINGLE') {
     if (!pendingTargetId) return;
     const updates = {};
     updates[`members/${pendingTargetId}/weeklyPayments`] = null;
     updates[`members/${pendingTargetId}/loanAmount`] = 0;
     updates[`members/${pendingTargetId}/loanPaid`] = 0;
-    db.ref().update(updates)
-      .then(() => {
-        alert(`Financial records for ${pendingTargetId} reset.`);
-        setStatus(`Financial records for ${pendingTargetId} reset.`);
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Reset failed: " + err.message));
+    db.ref().update(updates).then(() => {
+      alert(`Financial records for ${pendingTargetId} reset.`);
+      setStatus(`Financial records for ${pendingTargetId} reset.`);
+      closeModals(); resetPendingAction();
+    }).catch(err => alert("Reset failed: " + err.message));
   } else if (pendingActionType === 'RESET_ALL') {
     const updates = {};
     members.forEach(m => {
@@ -945,16 +867,12 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
         updates[`${m.id}/loanPaid`] = 0;
       }
     });
-    db.ref('members').update(updates)
-      .then(() => {
-        alert("All financial records reset.");
-        setStatus("All members' financial records reset.");
-        closeModals();
-        resetPendingAction();
-      })
-      .catch(err => alert("Global reset failed: " + err.message));
+    db.ref('members').update(updates).then(() => {
+      alert("All financial records reset.");
+      setStatus("All members' financial records reset.");
+      closeModals(); resetPendingAction();
+    }).catch(err => alert("Global reset failed: " + err.message));
   } else if (pendingActionType === 'LOGOUT') {
-    // Clear session and stop timer
     clearSession();
     stopInactivityTimer();
     setViewerMode();
@@ -969,38 +887,32 @@ function resetPendingAction() {
   pendingTargetId = null;
 }
 
-// ------------------- RENDER MEMBERS & SUMMARY -------------------
+// ================================================================
+// SECTION 28: RENDER MEMBERS & SUMMARY
+// ================================================================
 function renderMembers(filterQuery = '') {
   const container = document.getElementById('membersListContainer');
   if (!container) return;
-
   if (activeUserRole === "viewer") {
-    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
-      Please log in to view members.
-    </div>`;
+    container.innerHTML = `<div style="text-align:center;padding:20px;color:#aaa;font-size:12px;">Please log in to view members.</div>`;
     return;
   }
-
   let listToRender = members;
   if (filterQuery) {
     const q = filterQuery.trim().toUpperCase();
-    listToRender = members.filter(m => 
-      (m.id && m.id.toUpperCase().includes(q)) || 
+    listToRender = members.filter(m =>
+      (m.id && m.id.toUpperCase().includes(q)) ||
       (m.name && m.name.toUpperCase().includes(q))
     );
   }
-
   if (listToRender.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:12px;">
+    container.innerHTML = `<div style="text-align:center;padding:20px;color:#aaa;font-size:12px;">
       ${filterQuery ? `No members found matching "${filterQuery}".` : 'No members recorded.'}
     </div>`;
     return;
   }
-
   let html = '';
-  listToRender.forEach(m => {
-    html += createMemberCardHTML(m);
-  });
+  listToRender.forEach(m => { html += createMemberCardHTML(m); });
   container.innerHTML = html;
 }
 
@@ -1010,13 +922,10 @@ function createMemberCardHTML(m) {
   const lAmt = parseFloat(m.loanAmount) || 0;
   const lPaid = parseFloat(m.loanPaid) || 0;
   const lBal = Math.max(0, lAmt - lPaid);
-
   const isOwnProfile = (activeUserId === m.id);
   const canSeeFullDetails = isEditor || isOwnProfile;
-  
   const displayId = canSeeFullDetails ? m.id : maskID(m.id);
   const displayPhone = canSeeFullDetails ? (m.phone || 'N/A') : 'Hidden';
-
   const actionButtons = isEditor ? `
     <div class="card-actions">
       <button class="icon-action-btn delete-btn" onclick="initiateDeleteMember('${m.id}')" title="Delete Member">
@@ -1026,17 +935,16 @@ function createMemberCardHTML(m) {
         <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-8z"/></svg>
       </button>
     </div>` : '';
-
   return `
     <div class="member-card">
       <div class="member-info">
         <div class="member-header">
           <span>${m.name || 'Unnamed'} (${displayId})</span>
-          <span style="color:${m.isEditor ? '#28a745' : '#888'}; font-size: 10px;">${m.isEditor ? 'Editor' : 'Member'}</span>
+          <span style="color:${m.isEditor ? '#28a745' : '#888'};font-size:10px;">${m.isEditor ? 'Editor' : 'Member'}</span>
         </div>
         <div>Phone: ${displayPhone} | Ties: ${m.familyTies || 'N/A'}</div>
         <div style="margin-top:4px;">
-          Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> | 
+          Saved: <b style="color:#51cf66;">₦${amountSaved.toLocaleString()}</b> |
           Loan Bal: <b style="color:#ff6b6b;">₦${lBal.toLocaleString()}</b>
         </div>
       </div>
@@ -1045,20 +953,15 @@ function createMemberCardHTML(m) {
 }
 
 function renderSummary() {
-  let totalSaved = 0;
-  let totalLoans = 0;
-  let totalRepaid = 0;
-
+  let totalSaved = 0, totalLoans = 0, totalRepaid = 0;
   members.forEach(m => {
     const payments = getPaymentsArray(m.weeklyPayments);
     totalSaved += payments.reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
     totalLoans += parseFloat(m.loanAmount) || 0;
     totalRepaid += parseFloat(m.loanPaid) || 0;
   });
-
   const totalLoanBal = Math.max(0, totalLoans - totalRepaid);
   const grandNet = totalSaved - totalLoanBal;
-
   document.getElementById('sumTotalSaved').innerText = `₦${totalSaved.toLocaleString()}`;
   document.getElementById('sumTotalLoans').innerText = `₦${totalLoans.toLocaleString()}`;
   document.getElementById('sumTotalRepaid').innerText = `₦${totalRepaid.toLocaleString()}`;
@@ -1067,7 +970,9 @@ function renderSummary() {
   document.getElementById('sumTotalMembers').innerText = members.length;
 }
 
-// ------------------- ACTIVITY LISTENERS (for inactivity logout) -------------------
+// ================================================================
+// SECTION 29: ACTIVITY LISTENERS (for inactivity logout)
+// ================================================================
 ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(eventType => {
   window.addEventListener(eventType, resetInactivityTimer, { passive: true });
 });
