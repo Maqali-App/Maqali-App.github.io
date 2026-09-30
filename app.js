@@ -433,33 +433,46 @@ let touchStartX = 0;
 let touchStartY = 0;
 let touchEndX = 0;
 let touchEndY = 0;
+let touchStartTime = 0;
 
 tabContainer.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].screenX;
   touchStartY = e.changedTouches[0].screenY;
+  touchStartTime = Date.now();
 }, { passive: true });
 
 tabContainer.addEventListener('touchend', (e) => {
   touchEndX = e.changedTouches[0].screenX;
   touchEndY = e.changedTouches[0].screenY;
+  
   handleSwipe();
 }, { passive: true });
 
 function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
+  const elapsed = Date.now() -touchStartTime;
 
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 120) {
+    // Require:
+  // 1. Horizontal movement larger than vertical (not a scroll)
+  // 2. At least 120px of horizontal travel
+  // 3. Completed within 500ms (a deliberate swipe, not a slow drag)
+
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 120 &&
+      elapsed < 500) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
+    
 
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
 
     let newIndex;
     if (deltaX < 0) {
+      // Swipe left --> next Tab
       newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
     } else {
+            // Swipe Right --> Previous Tab
       newIndex = Math.max(currentIndex - 1, 0);
     }
 
