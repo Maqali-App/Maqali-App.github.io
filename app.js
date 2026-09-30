@@ -432,7 +432,7 @@ const tabContainer = document.getElementById('tabContainer');
 let touchStartX = 0;
 let touchStartY = 0;
 let touchEndX = 2;
-let touchEndY = 2;
+let touchEndY = 0;
 
 tabContainer.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].screenX;
