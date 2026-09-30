@@ -459,7 +459,7 @@ function handleSwipe() {
   // 3. Completed within 500ms (a deliberate swipe, not a slow drag)
 
   if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 220 &&
-      elapsed < 500) {
+      elapsed < 100) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
     
