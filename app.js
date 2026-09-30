@@ -458,7 +458,7 @@ function handleSwipe() {
   // 2. At least 120px of horizontal travel
   // 3. Completed within 500ms (a deliberate swipe, not a slow drag)
 
-  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 100 &&
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10 &&
       elapsed < 100) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
