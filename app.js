@@ -593,20 +593,41 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
-  const memberObj = {
-    id: typedId,
-    name,
-    age: document.getElementById('age').value,
-    phone: document.getElementById('phone').value,
-    familyTies: document.getElementById('familyTies').value,
-    isEditor: isEditorRole,
-    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-    uid: existingMember ? existingMember.uid : null,
-    password,
-    weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-    loanAmount: existingMember ? existingMember.loanAmount : 0,
-    loanPaid: existingMember ? existingMember.loanPaid : 0
-  };
+  //const memberObj = {
+    //id: typedId,
+    //name,
+   // age: document.getElementById('age').value,
+   // phone: document.getElementById('phone').value,
+   // familyTies: document.getElementById('familyTies').value,
+    //isEditor: isEditorRole,
+    //email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+    //uid: existingMember ? existingMember.uid : null,
+    //password,
+    //weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+   // loanAmount: existingMember ? existingMember.loanAmount : 0,
+    //loanPaid: existingMember ? existingMember.loanPaid : 0
+  //};
+
+
+   const memberObj = {
+  id: typedId,
+  name,
+  age: document.getElementById('age').value,
+  phone: document.getElementById('phone').value,
+  familyTies: document.getElementById('familyTies').value,
+  isEditor: isEditorRole,
+  email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+  uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
+  password,
+  weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+  loanAmount: existingMember ? existingMember.loanAmount : 0,
+  loanPaid: existingMember ? existingMember.loanPaid : 0
+};
+
+
+
+
+  
 
   try {
     await db.ref('members/' + typedId).set(memberObj);
