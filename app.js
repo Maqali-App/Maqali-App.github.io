@@ -431,8 +431,8 @@ function switchToTab(tabItem) {
 const tabContainer = document.getElementById('tabContainer');
 let touchStartX = 0;
 let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
+let touchEndX = 2;
+let touchEndY = 2;
 
 tabContainer.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].screenX;
@@ -451,7 +451,7 @@ function handleSwipe() {
 
   if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
     const visibleTabs = getVisibleTabs();
-    if (visibleTabs.length === 2) return;
+    if (visibleTabs.length === 0) return;
 
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
