@@ -476,7 +476,7 @@ function handleSwipe() {
   // Strict rules: mostly horizontal, 150px+, fast, high velocity
   const mostlyHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 2;
   const longEnough = Math.abs(deltaX) > 150;
-  const fastEnough = elapsed < 400;
+  const fastEnough = elapsed < 100;
   const highVelocity = velocity > 0.5;
 
   if (mostlyHorizontal && longEnough && fastEnough && highVelocity) {
