@@ -5,88 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MAQALI FAMILY</title>
   <style>
-    .no-tab-animation .tab-content {
-    transition: none !important;
-    }
-    .app-loading .tab-container,
-      .app-loading .tab-bar {
-       visibility: hidden;
-      }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-    body { background-color: #000041; color: #fff; padding: 10px; padding-bottom: 70px; }
-    
+    body { background-color: #000040; color: #fff; padding: 10px; padding-bottom: 70px; }
+
+    .app-loading .tab-container,
+    .app-loading .tab-bar { visibility: hidden; }
+    .no-tab-animation .tab-content { transition: none !important; }
+
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .role-badge { font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: #333366; }
     .login-btn { background: #007AFF; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
-    
+
     .status-banner { background: #111155; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #333; text-align: center; color: #ffd700; font-size: 11px; font-weight: bold; min-height: 32px; display: flex; align-items: center; justify-content: center; }
     .card { background: #000028; border-radius: 8px; padding: 12px; border: 1px solid #333; }
-    
+
     .field-row { display: flex; align-items: center; margin-bottom: 8px; }
     .field-label { width: 90px; font-size: 11px; font-weight: bold; }
     .field-input { flex: 1; background: #333366; color: #fff; border: none; border-radius: 4px; padding: 6px 8px; height: 34px; font-size: 12px; }
     .field-input:read-only { background: #222244; color: #aaa; cursor: not-allowed; }
-    
+
     .shared-input-wrapper { flex: 1; display: flex; height: 34px; }
     .id-input-part { flex: 1; background: #333366; color: #fff; border: none; border-top-left-radius: 4px; border-bottom-left-radius: 4px; padding: 6px 8px; font-size: 12px; }
     .id-input-part:read-only { background: #222244; color: #ffd700; font-weight: bold; cursor: not-allowed; }
     .load-btn-part { width: 60px; background: #007AFF; color: #fff; border: none; border-top-right-radius: 4px; border-bottom-right-radius: 4px; font-weight: bold; font-size: 11px; cursor: pointer; }
-    
+
     .btn-row { display: flex; gap: 8px; margin: 10px 0; }
     .action-btn { flex: 1; background: #007AFF; color: #fff; border: none; border-radius: 4px; height: 34px; font-weight: bold; font-size: 11px; cursor: pointer; }
     .save-btn { background: #28a745; }
-    
+
     .summary-box { background: #000015; border-radius: 6px; padding: 10px; margin-top: 8px; }
     .summary-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
     .summary-val { font-weight: bold; }
-    
+
     .grid-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: space-between; margin-top: 10px; }
     .grid-cell { width: 18%; display: flex; flex-direction: column; align-items: center; margin-bottom: 6px; }
     .grid-label { font-size: 9px; color: #aaa; margin-bottom: 2px; }
     .grid-input { width: 100%; text-align: center; height: 28px; font-size: 10px; background: #333366; color: #fff; border: 1px solid #444; border-radius: 4px; }
-    
+
     .gen-box { background: #000010; border-radius: 4px; padding: 10px; margin-bottom: 8px; text-align: center; }
     .gen-label { font-size: 10px; color: #aaa; font-weight: bold; margin-bottom: 2px; }
     .gen-val { font-size: 16px; font-weight: bold; }
-    
+
     .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #00001a; border-top: 1px solid #333; height: 55px; z-index: 999; }
     .tab-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 10px; font-weight: bold; cursor: pointer; text-align: center; gap: 3px; }
     .tab-item svg { width: 20px; height: 20px; fill: currentColor; }
     .tab-item.active { color: #007AFF; border-top: 2px solid #007AFF; background: #000030; }
-    
-    /* Sliding tab container */
-    .tab-container {
-      position: relative;
-      overflow: hidden;
-      height: calc(100vh - 145px); /* topbar + status + bottom tab bar */
-      margin-bottom: 55px;
-    }
-    .tab-content {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      overflow-y: auto;
-      padding: 10px;
-      transform: translateX(100%);
-      transition: transform 1.0s ease-in-out;
-    }
-    .tab-content.active {
-      transform: translateX(0);
-    }
-    
+
+    .tab-container { position: relative; overflow: hidden; height: calc(100vh - 145px); margin-bottom: 55px; }
+    .tab-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 10px; transform: translateX(100%); transition: transform 0.3s ease-in-out; }
+    .tab-content.active { transform: translateX(0); }
+
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 10000; padding: 15px; }
     .modal-overlay.active { display: flex !important; }
     .modal-box { background: #000028; border: 1px solid #007AFF; border-radius: 8px; width: 100%; max-width: 340px; padding: 16px; }
     .modal-title { font-size: 13px; font-weight: bold; color: #ffd700; margin-bottom: 12px; text-align: center; }
     .modal-subtitle { font-size: 11px; color: #aaa; margin-bottom: 10px; text-align: center; }
     .link-btn { background: none; border: none; color: #007AFF; font-size: 11px; text-decoration: underline; cursor: pointer; margin-top: 8px; display: block; width: 100%; text-align: center; }
-    
+
     .member-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 11px; display: flex; justify-content: space-between; align-items: flex-start; }
     .member-info { flex: 1; }
     .member-header { font-weight: bold; color: #ffd700; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
-    
+
     .card-actions { display: flex; flex-direction: column; gap: 6px; align-items: center; margin-left: 10px; }
     .icon-action-btn { background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 4px; }
     .delete-btn { color: #ff6b6b; }
@@ -94,27 +73,23 @@
     .reset-btn { color: #ffd700; }
     .reset-btn:hover { background: rgba(255,215,0,0.2); }
     .icon-action-btn svg { width: 16px; height: 16px; fill: currentColor; }
-     .reset-all-btn {
-  background: #dc3545;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  height: 34px;
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  white-space: nowrap;
-  flex: 0 0 auto;
-  margin-right: 5px;
-     }
 
-    
+    .reset-all-btn {
+      background: #dc3545; color: #fff; border: none; border-radius: 4px;
+      height: 34px; padding: 0 8px; display: flex; align-items: center;
+      justify-content: center; gap: 4px; font-size: 10px; font-weight: bold;
+      cursor: pointer; white-space: nowrap; flex: 0 0 auto; margin-right: 5px;
+    }
+
     .name-display-tag { font-size: 11px; color: #ffd700; font-weight: bold; margin-left: 90px; margin-bottom: 8px; min-height: 15px; }
+
+    /* NEW: History card styles */
+    .history-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; }
+    .history-type-payment   { color: #51cf66; font-weight: bold; }
+    .history-type-loan      { color: #ff6b6b; font-weight: bold; }
+    .history-type-repayment { color: #4dabf7; font-weight: bold; }
+    .history-meta { color: #aaa; font-size: 10px; margin-top: 3px; }
+    .history-empty { text-align:center; padding:20px; color:#aaa; font-size:12px; }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -123,15 +98,20 @@
 </head>
 <body>
 
+  <!-- ============================ TOP BAR ============================ -->
   <div class="top-bar">
     <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
-    <button class="login-btn" id="loginBtn">Member Login</button>
+    <div style="display:flex; gap:6px;">
+      <button class="login-btn" id="historyBtn" style="background:#6f42c1;">History</button>
+      <button class="login-btn" id="loginBtn">Member Login</button>
+    </div>
   </div>
 
   <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
 
-  <!-- Wrap all tab contents inside a sliding container -->
+  <!-- ============================ TAB CONTAINER ============================ -->
   <div class="tab-container" id="tabContainer">
+
     <!-- TAB 1: PROFILE -->
     <div id="tab-Profile" class="tab-content active">
       <div class="card">
@@ -142,7 +122,6 @@
             <button class="load-btn-part" id="btnLoadProfile">Load</button>
           </div>
         </div>
-        
         <div class="field-row"><span class="field-label">Name</span><input type="text" id="name" class="field-input" placeholder="Full Name"></div>
         <div class="field-row"><span class="field-label">Age</span><input type="number" id="age" class="field-input" placeholder="Age"></div>
         <div class="field-row"><span class="field-label">Phone</span><input type="tel" id="phone" class="field-input" placeholder="Phone"></div>
@@ -154,17 +133,14 @@
             <option value="Editor">Editor (E-)</option>
           </select>
         </div>
-        <!-- New password field for member creation/editing -->
         <div class="field-row">
           <span class="field-label">Password</span>
           <input type="password" id="password" class="field-input" placeholder="Leave blank for default 1234">
         </div>
-
         <div class="btn-row">
           <button class="action-btn" id="btnNewID">New ID</button>
           <button class="action-btn save-btn" id="btnSaveMember">Save Member</button>
         </div>
-
         <div class="summary-box">
           <div class="summary-row"><span>Weeks Paid:</span><span id="profWeeksPaid" class="summary-val">0</span></div>
           <div class="summary-row"><span>Amount Saved:</span><span id="profAmountSaved" class="summary-val">₦0</span></div>
@@ -187,7 +163,6 @@
           </div>
         </div>
         <div id="weeklyMemberName" class="name-display-tag"></div>
-
         <div class="grid-container" id="grid50"></div>
         <button class="action-btn save-btn" id="btnSavePayments" style="width: 100%; margin-top: 12px;">Save Payments</button>
       </div>
@@ -204,13 +179,11 @@
           </div>
         </div>
         <div id="loansMemberName" class="name-display-tag"></div>
-
         <div class="summary-box">
           <div class="summary-row"><span>Loan Total:</span><span id="loanTotalVal" class="summary-val">₦0</span></div>
           <div class="summary-row"><span>Total Paid:</span><span id="loanPaidVal" class="summary-val">₦0</span></div>
           <div class="summary-row"><span>Balance:</span><span id="loanBalVal" class="summary-val" style="color: #ff6b6b;">₦0</span></div>
         </div>
-
         <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
           <span style="font-size: 11px; color: #aaa; font-weight: bold;">Issue Loan</span>
           <div class="field-row" style="margin-top: 6px;">
@@ -218,7 +191,6 @@
             <button class="action-btn" id="btnAddLoan" style="background: #dc3545; width: 90px; margin-left: 8px;">Add Loan</button>
           </div>
         </div>
-
         <div style="margin-top: 10px; background: #000018; padding: 8px; border-radius: 6px;">
           <span style="font-size: 11px; color: #aaa; font-weight: bold;">Record Repayment</span>
           <div class="field-row" style="margin-top: 6px;">
@@ -229,7 +201,7 @@
       </div>
     </div>
 
-    <!-- TAB 4: MEMBERS LIST (visible only to viewers & editors) -->
+    <!-- TAB 4: MEMBERS LIST -->
     <div id="tab-Members" class="tab-content">
       <div class="card">
         <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
@@ -237,7 +209,7 @@
             <input type="text" id="searchMemberId" class="id-input-part" placeholder="Member ID (e.g. M-001)">
             <button class="load-btn-part" id="btnSearchMember">Load</button>
           </div>
-          <button id="btnGeneralReset" class="action-btn reset-all-btn" style="background: #dc3545; width: auto; padding: 0 10px; display: flex; align-items: center; gap: 4px; height: 34px;" title="Reset All Members Financial Records">
+          <button id="btnGeneralReset" class="reset-all-btn" title="Reset All Members Financial Records">
             <svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor;"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
             <span style="font-size: 10px;">Reset All</span>
           </button>
@@ -259,7 +231,9 @@
     </div>
   </div>
 
-  <!-- MODAL: MEMBER LOGIN -->
+  <!-- ============================ MODALS ============================ -->
+
+  <!-- LOGIN -->
   <div class="modal-overlay" id="modalLogin">
     <div class="modal-box">
       <div class="modal-title">MEMBER LOGIN</div>
@@ -278,12 +252,11 @@
     </div>
   </div>
 
-  <!-- MODAL: PASSWORD RECOVERY WITH MASTER PIN -->
+  <!-- PASSWORD RECOVERY -->
   <div class="modal-overlay" id="modalReset">
     <div class="modal-box">
       <div class="modal-title">PASSWORD RECOVERY</div>
       <div class="modal-subtitle">Enter your Member ID & click Load</div>
-      
       <div class="field-row">
         <span class="field-label">Member ID</span>
         <div class="shared-input-wrapper">
@@ -291,9 +264,7 @@
           <button class="load-btn-part" id="btnVerifyReset">Load</button>
         </div>
       </div>
-      
       <div id="resetStatusMsg" style="font-size: 11px; text-align: center; margin: 6px 0; color: #ffd700;"></div>
-      
       <div id="resetFields" style="display: none;">
         <div class="field-row">
           <span class="field-label">Master PIN</span>
@@ -309,12 +280,11 @@
         </div>
         <button class="action-btn save-btn" id="btnSubmitReset" style="width: 100%; margin-top: 8px;">Update Password</button>
       </div>
-      
       <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
     </div>
   </div>
 
-  <!-- MODAL: ADMIN SECURITY PIN AUTHENTICATION -->
+  <!-- SECURITY PIN -->
   <div class="modal-overlay" id="modalSecurityPin">
     <div class="modal-box">
       <div class="modal-title" style="color: #ffd700;">SECURITY VERIFICATION</div>
@@ -328,7 +298,7 @@
     </div>
   </div>
 
-  <!-- MODAL: ACTION CONFIRMATION -->
+  <!-- ACTION CONFIRM -->
   <div class="modal-overlay" id="modalActionConfirm">
     <div class="modal-box">
       <div class="modal-title" style="color: #ff6b6b;" id="actionConfirmTitle">CONFIRM ACTION</div>
@@ -342,7 +312,31 @@
     </div>
   </div>
 
-  <!-- NAVIGATION TABS -->
+  <!-- ============================ NEW: HISTORY MODAL ============================ -->
+  <div class="modal-overlay" id="modalHistory">
+    <div class="modal-box">
+      <div class="modal-title">TRANSACTION HISTORY</div>
+
+      <!-- Editor only: Member ID input -->
+      <div id="historyEditorControls" style="display:none;">
+        <div class="field-row">
+          <span class="field-label">Member ID</span>
+          <div class="shared-input-wrapper">
+            <input type="text" id="historyMemberIdInput" class="id-input-part" placeholder="M-001">
+            <button class="load-btn-part" id="btnLoadHistory">Load</button>
+          </div>
+        </div>
+        <div id="historyStatusMsg" style="font-size:11px;text-align:center;color:#ffd700;margin:6px 0;"></div>
+      </div>
+
+      <div id="historyMemberName" class="name-display-tag"></div>
+      <div id="historyListContainer" style="max-height:50vh;overflow-y:auto;margin-top:8px;"></div>
+
+      <button class="action-btn btn-close-modal" style="width:100%;margin-top:10px;background:#555;">Close</button>
+    </div>
+  </div>
+
+  <!-- ============================ NAVIGATION TABS ============================ -->
   <div class="tab-bar">
     <div class="tab-item active" data-tab="Profile">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -366,6 +360,6 @@
     </div>
   </div>
 
-  <script src="maqali.js"></script>
+  <script src="maqali.js?v=2"></script>
 </body>
-                                                                                                                                        </html>
+</html>
