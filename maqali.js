@@ -786,7 +786,6 @@ for (let i = 0; i < 50; i++) {
   });
 }
   }
-}
     alert("Weekly payments saved!");
     setStatus(`Weekly payments saved for ${id}`);
   } catch (err) {
