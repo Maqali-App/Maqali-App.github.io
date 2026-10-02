@@ -1158,9 +1158,9 @@ function renderHistory(entries) {
 
     const date = e.timestamp ? new Date(e.timestamp).toLocaleString() : '';
     const balanceLine = (e.oldBalance !== null && e.oldBalance !== undefined)
-      ? `Balance: ₦${Number(e.oldBalance).toLocaleString()} → ₦${Number(e.newBalance).toLocaleString()}`
-      : '';
-
+  ? `Balance: ${Number(e.oldBalance) < 0 ? '-₦' + Math.abs(Number(e.oldBalance)).toLocaleString() : '₦' + Number(e.oldBalance).toLocaleString()} → ${Number(e.newBalance) < 0 ? '-₦' + Math.abs(Number(e.newBalance)).toLocaleString() : '₦' + Number(e.newBalance).toLocaleString()}`
+  : '';
+    
     html += `
       <div class="history-card">
         <div class="${typeClass}">${typeLabel}: ${e.description || ''}</div>
