@@ -84,12 +84,31 @@
     .name-display-tag { font-size: 11px; color: #ffd700; font-weight: bold; margin-left: 90px; margin-bottom: 8px; min-height: 15px; }
 
     /* NEW: History card styles */
-    .history-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; }
+    /*.history-card { background: #000018; border: 1px solid #333366; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; }
     .history-type-payment   { color: #51cf66; font-weight: bold; }
     .history-type-loan      { color: #ff6b6b; font-weight: bold; }
     .history-type-repayment { color: #4dabf7; font-weight: bold; }
     .history-meta { color: #aaa; font-size: 10px; margin-top: 3px; }
-    .history-empty { text-align:center; padding:20px; color:#aaa; font-size:12px; }
+    .history-empty { text-align:center; padding:20px; color:#aaa; font-size:12px; }*/
+
+
+
+.history-card {
+  background: #000018;
+  border: 1px solid #333366;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.history-type-payment   { color: #51cf66; font-weight: bold; font-size: 14px; }
+.history-type-loan      { color: #ff6b6b; font-weight: bold; font-size: 14px; }
+.history-type-repayment { color: #4dabf7; font-weight: bold; font-size: 14px; }
+.history-meta { color: #b5b5d0; font-size: 12px; margin-top: 5px; }
+.history-empty { text-align:center; padding:30px; color:#aaa; font-size:14px; }
+
+    
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -234,7 +253,7 @@
   <!-- ============================ MODALS ============================ -->
 
   <!-- LOGIN -->
-  <div class="modal-overlay" id="modalLogin">
+ <!-- <div class="modal-overlay" id="modalLogin">
     <div class="modal-box">
       <div class="modal-title">MEMBER LOGIN</div>
       <div class="modal-subtitle">Enter your Member ID (M-xxx or E-xxx)</div>
@@ -250,7 +269,34 @@
       <button class="link-btn" id="btnOpenReset">Forgot / Set Password?</button>
       <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
     </div>
+  </div> -->
+
+
+  <!-- MODAL: HISTORY -->
+<div class="modal-overlay" id="modalHistory">
+  <div class="modal-box" style="max-width: 92vw; width: 500px; max-height: 85vh; display: flex; flex-direction: column;">
+    <div class="modal-title" style="font-size: 15px; margin-bottom: 14px;">TRANSACTION HISTORY</div>
+
+    <!-- Editor only: Member ID input -->
+    <div id="historyEditorControls" style="display:none;">
+      <div class="field-row">
+        <span class="field-label" style="width:80px;">Member ID</span>
+        <div class="shared-input-wrapper">
+          <input type="text" id="historyMemberIdInput" class="id-input-part" placeholder="M-001">
+          <button class="load-btn-part" id="btnLoadHistory">Load</button>
+        </div>
+      </div>
+      <div id="historyStatusMsg" style="font-size:11px;text-align:center;color:#ffd700;margin:6px 0;"></div>
+    </div>
+
+    <div id="historyMemberName" style="font-size:13px;color:#ffd700;font-weight:bold;margin:6px 0;"></div>
+    <div id="historyListContainer" style="flex:1;overflow-y:auto;margin-top:8px;padding-right:4px;"></div>
+
+    <button class="action-btn btn-close-modal" style="width:100%;margin-top:12px;background:#555;">Close</button>
   </div>
+</div>
+
+  
 
   <!-- PASSWORD RECOVERY -->
   <div class="modal-overlay" id="modalReset">
