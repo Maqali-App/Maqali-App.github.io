@@ -1,6 +1,9 @@
 // ================================================================
+// MAQALI.JS – Full version with history logging
+// ================================================================
+
+// ================================================================
 // SECTION 1: FIREBASE CONFIGURATION
-// Purpose: Keys that identify your Firebase project.
 // ================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyAs1A-I-TgTLPxthSxa0D4e-R6pmsk70FU",
@@ -14,35 +17,30 @@ const firebaseConfig = {
 };
 
 // ================================================================
-// SECTION 2: FIREBASE INITIALIZATION
-// Purpose: Start Firebase app, database, and authentication services.
+// SECTION 2: INITIALIZATION
 // ================================================================
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
 
 // ================================================================
-// SECTION 3: DIAGNOSTIC + LOADING STATE
-// Purpose: Confirm script runs, and hide the UI while we restore the session.
-// If you see "Script loaded, initializing..." the script is running.
+// SECTION 3: LOADING STATE
 // ================================================================
 document.getElementById('statusBanner').innerText = "STATUS: Script loaded, initializing...";
 document.body.classList.add('app-loading', 'no-tab-animation');
 
 // ================================================================
-// SECTION 4: ANONYMOUS SIGN-IN (for read access)
-// Purpose: Gives the browser a valid auth token to read the database.
+// SECTION 4: ANONYMOUS SIGN-IN
 // ================================================================
 auth.signInAnonymously().catch(err => console.warn("Guest sign-in failed:", err));
 
 // ================================================================
-// SECTION 5: GLOBAL STATE VARIABLES
-// Purpose: Track the current user, role, and pending actions.
+// SECTION 5: GLOBAL STATE
 // ================================================================
 let members = [];
 let isEditor = false;
 let activeUserId = "";
-let activeUserRole = "viewer"; // "viewer" | "member" | "editor"
+let activeUserRole = "viewer";
 let isEditingExistingMember = false;
 
 let pendingActionType = null;
@@ -55,7 +53,7 @@ let inactivityTimer = null;
 // ================================================================
 const DEFAULT_PASSWORD = "1234";
 const EMAIL_DOMAIN = "@maqali.com";
-const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 // ================================================================
 // SECTION 7: UTILITY FUNCTIONS
@@ -86,7 +84,6 @@ function maskID(id) {
 
 // ================================================================
 // SECTION 8: SESSION HELPERS
-// Purpose: Remember the logged-in user across page refreshes.
 // ================================================================
 function saveSession(userId, role, tab) {
   localStorage.setItem('maqali_active_user', userId);
@@ -110,7 +107,6 @@ function getStoredSession() {
 
 // ================================================================
 // SECTION 9: INACTIVITY TIMER
-// Purpose: Auto-logout after 5 minutes of no user activity.
 // ================================================================
 function resetInactivityTimer() {
   if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -211,6 +207,7 @@ function lockAllTabs() {
   document.querySelectorAll('input, select, button').forEach(el => {
     if (
       el.id !== 'loginBtn' &&
+      el.id !== 'historyBtn' &&
       !el.closest('.modal-overlay') &&
       !el.classList.contains('btn-close-modal')
     ) {
@@ -295,7 +292,6 @@ function hideLoginPrompt() {
 
 // ================================================================
 // SECTION 14: AUTH STATE HANDLER
-// Purpose: Restores session on load, or shows viewer mode.
 // ================================================================
 auth.onAuthStateChanged(user => {
   if (user && user.isAnonymous) {
@@ -382,6 +378,24 @@ function clearProfileForm() {
 }
 
 // ================================================================
+// SECTION 15b: HISTORY LOGGER
+// ================================================================
+function logHistory(memberId, entry) {
+  if (!memberId || !entry) return;
+  const enriched = {
+    type: entry.type || "unknown",
+    amount: Number(entry.amount) || 0,
+    week: entry.week || null,
+    timestamp: Date.now(),
+    by: entry.by || activeUserId || "system",
+    description: entry.description || "",
+    oldBalance: (entry.oldBalance === undefined) ? null : Number(entry.oldBalance),
+    newBalance: (entry.newBalance === undefined) ? null : Number(entry.newBalance)
+  };
+  return db.ref(`members/${memberId}/history`).push(enriched);
+}
+
+// ================================================================
 // SECTION 16: WEEKLY GRID BUILDER
 // ================================================================
 const grid = document.getElementById('grid50');
@@ -426,27 +440,15 @@ function switchToTab(tabItem) {
 }
 
 // ================================================================
-// SECTION 19: SWIPE NAVIGATION
-// Requires: 100px horizontal, faster than 500ms, mostly horizontal.
+// SECTION 19: SWIPE NAVIGATION (strict)
 // ================================================================
-
-
-
-// ------------------- SWIPE NAVIGATION (strict) -------------------
 const tabContainer = document.getElementById('tabContainer');
-let touchStartX = 0;
-let touchStartY = 0;
-let touchEndX = 0;
-let touchEndY = 0;
-let touchStartTime = 0;
+let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0, touchStartTime = 0;
 let isPinchOrZoom = false;
 
 if (tabContainer) {
   tabContainer.addEventListener('touchstart', (e) => {
-    if (e.touches.length > 1) {
-      isPinchOrZoom = true;
-      return;
-    }
+    if (e.touches.length > 1) { isPinchOrZoom = true; return; }
     isPinchOrZoom = false;
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
@@ -460,7 +462,6 @@ if (tabContainer) {
   tabContainer.addEventListener('touchend', (e) => {
     if (isPinchOrZoom) { isPinchOrZoom = false; return; }
     if (e.touches.length > 0) return;
-
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
     handleSwipe();
@@ -471,25 +472,21 @@ function handleSwipe() {
   const deltaX = touchEndX - touchStartX;
   const deltaY = touchEndY - touchStartY;
   const elapsed = Date.now() - touchStartTime;
-  const velocity = Math.abs(deltaX) / elapsed; // pixels per millisecond
+  const velocity = Math.abs(deltaX) / elapsed;
 
-  // Strict rules: mostly horizontal, 150px+, fast, high velocity
   const mostlyHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 2;
-  const longEnough = Math.abs(deltaX) > 50;
-  const fastEnough = elapsed < 100;
-  const highVelocity = velocity > 0.3;
+  const longEnough = Math.abs(deltaX) > 150;
+  const fastEnough = elapsed < 400;
+  const highVelocity = velocity > 0.5;
 
   if (mostlyHorizontal && longEnough && fastEnough && highVelocity) {
     const visibleTabs = getVisibleTabs();
     if (visibleTabs.length === 0) return;
-
     const currentIndex = getCurrentTabIndex(visibleTabs);
     if (currentIndex === -1) return;
-
     let newIndex;
     if (deltaX < 0) newIndex = Math.min(currentIndex + 1, visibleTabs.length - 1);
     else newIndex = Math.max(currentIndex - 1, 0);
-
     if (newIndex !== currentIndex) {
       switchToTab(visibleTabs[newIndex]);
       localStorage.setItem('maqali_active_tab', visibleTabs[newIndex].getAttribute('data-tab'));
@@ -498,17 +495,13 @@ function handleSwipe() {
 }
 
 function getVisibleTabs() {
-  return Array.from(document.querySelectorAll('.tab-item')).filter(tab => {
-    return tab.style.display !== 'none';
-  });
+  return Array.from(document.querySelectorAll('.tab-item')).filter(t => t.style.display !== 'none');
 }
 
 function getCurrentTabIndex(visibleTabs) {
   const activeTab = document.querySelector('.tab-item.active');
   return visibleTabs.indexOf(activeTab);
 }
-
-
 
 // ================================================================
 // SECTION 20: MODAL HELPERS
@@ -722,7 +715,7 @@ document.getElementById('btnSubmitReset').addEventListener('click', () => {
 });
 
 // ================================================================
-// SECTION 24: WEEKLY TAB HANDLERS
+// SECTION 24: WEEKLY TAB HANDLERS (with history logging)
 // ================================================================
 async function loadWeeklyForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
@@ -744,21 +737,50 @@ document.getElementById('btnLoadWeekly').addEventListener('click', async () => {
   await loadWeeklyForMember(id);
 });
 
-document.getElementById('btnSavePayments').addEventListener('click', () => {
+document.getElementById('btnSavePayments').addEventListener('click', async () => {
   if (!isEditor) return alert("Editor permission required.");
   const id = document.getElementById('weeklyMemberId').value.trim().toUpperCase();
   if (!id) return alert("Enter Member ID first.");
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) return alert(`Member ID ${id} not found.`);
-  const payments = [];
-  for (let i = 0; i < 50; i++) payments.push(document.getElementById(`wk_${i}`).value);
-  db.ref(`members/${id}/weeklyPayments`).set(payments)
-    .then(() => { alert("Weekly payments saved!"); setStatus(`Weekly payments saved for ${id}`); })
-    .catch(err => alert("Save failed: " + err.message));
+
+  const newPayments = [];
+  for (let i = 0; i < 50; i++) {
+    newPayments.push(document.getElementById(`wk_${i}`).value);
+  }
+  const oldPayments = getPaymentsArray(m.weeklyPayments);
+
+  try {
+    await db.ref(`members/${id}/weeklyPayments`).set(newPayments);
+
+    // Log each changed week as a history entry
+    for (let i = 0; i < 50; i++) {
+      const oldVal = oldPayments[i] === undefined ? "" : String(oldPayments[i]);
+      const newVal = newPayments[i] === undefined ? "" : String(newPayments[i]);
+      if (oldVal !== newVal) {
+        const amount = parseFloat(newVal) || 0;
+        if (amount > 0) {
+          await logHistory(id, {
+            type: "payment",
+            amount: amount,
+            week: i + 1,
+            description: `Week ${i + 1} payment: ₦${amount.toLocaleString()}`,
+            oldBalance: parseFloat(oldVal) || 0,
+            newBalance: amount
+          });
+        }
+      }
+    }
+
+    alert("Weekly payments saved!");
+    setStatus(`Weekly payments saved for ${id}`);
+  } catch (err) {
+    alert("Save failed: " + err.message);
+  }
 });
 
 // ================================================================
-// SECTION 25: LOANS TAB HANDLERS
+// SECTION 25: LOANS TAB HANDLERS (with history logging)
 // ================================================================
 async function loadLoansForMember(id) {
   let m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
@@ -781,34 +803,60 @@ document.getElementById('btnLoadLoans').addEventListener('click', async () => {
   await loadLoansForMember(id);
 });
 
-document.getElementById('btnAddLoan').addEventListener('click', () => {
+document.getElementById('btnAddLoan').addEventListener('click', async () => {
   if (!isEditor) return alert("Editor permission required.");
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   const amt = parseFloat(document.getElementById('newLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and loan amount.");
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) return alert(`Member ID ${id} not found.`);
-  const current = parseFloat(m.loanAmount) || 0;
-  db.ref(`members/${id}/loanAmount`).set(current + amt).then(() => {
+
+  const currentLoan = parseFloat(m.loanAmount) || 0;
+  const newLoan = currentLoan + amt;
+
+  try {
+    await db.ref(`members/${id}/loanAmount`).set(newLoan);
+    await logHistory(id, {
+      type: "loan",
+      amount: amt,
+      description: `Loan issued: ₦${amt.toLocaleString()}`,
+      oldBalance: currentLoan,
+      newBalance: newLoan
+    });
     alert("Loan added!");
     document.getElementById('newLoanInput').value = '';
     setStatus(`Added ₦${amt} loan to ${id}`);
-  });
+  } catch (err) {
+    alert("Failed to add loan: " + err.message);
+  }
 });
 
-document.getElementById('btnPayLoan').addEventListener('click', () => {
+document.getElementById('btnPayLoan').addEventListener('click', async () => {
   if (!isEditor) return alert("Editor permission required.");
   const id = document.getElementById('loansMemberId').value.trim().toUpperCase();
   const amt = parseFloat(document.getElementById('payLoanInput').value) || 0;
   if (!id || amt <= 0) return alert("Provide valid ID and payment amount.");
   const m = members.find(mem => mem.id && mem.id.toUpperCase() === id);
   if (!m) return alert(`Member ID ${id} not found.`);
-  const current = parseFloat(m.loanPaid) || 0;
-  db.ref(`members/${id}/loanPaid`).set(current + amt).then(() => {
+
+  const currentPaid = parseFloat(m.loanPaid) || 0;
+  const newPaid = currentPaid + amt;
+
+  try {
+    await db.ref(`members/${id}/loanPaid`).set(newPaid);
+    await logHistory(id, {
+      type: "repayment",
+      amount: amt,
+      description: `Loan repayment: ₦${amt.toLocaleString()}`,
+      oldBalance: currentPaid,
+      newBalance: newPaid
+    });
     alert("Repayment recorded!");
     document.getElementById('payLoanInput').value = '';
     setStatus(`Recorded ₦${amt} repayment for ${id}`);
-  });
+  } catch (err) {
+    alert("Failed to record repayment: " + err.message);
+  }
 });
 
 // ================================================================
@@ -847,7 +895,7 @@ document.getElementById('btnGeneralReset').addEventListener('click', () => {
 });
 
 // ================================================================
-// SECTION 27: CONFIRM MODAL HANDLER (DELETE / RESET / LOGOUT)
+// SECTION 27: CONFIRM MODAL HANDLER
 // ================================================================
 document.getElementById('btnVerifySecurityPin').addEventListener('click', () => {
   const inputPin = document.getElementById('securityPinInput').value.trim();
@@ -882,17 +930,20 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       setStatus(`Member ${pendingTargetId} deleted.`);
       closeModals(); resetPendingAction();
     }).catch(err => alert("Delete failed: " + err.message));
+
   } else if (pendingActionType === 'RESET_SINGLE') {
     if (!pendingTargetId) return;
     const updates = {};
     updates[`members/${pendingTargetId}/weeklyPayments`] = null;
     updates[`members/${pendingTargetId}/loanAmount`] = 0;
     updates[`members/${pendingTargetId}/loanPaid`] = 0;
+    updates[`members/${pendingTargetId}/history`] = null;
     db.ref().update(updates).then(() => {
       alert(`Financial records for ${pendingTargetId} reset.`);
       setStatus(`Financial records for ${pendingTargetId} reset.`);
       closeModals(); resetPendingAction();
     }).catch(err => alert("Reset failed: " + err.message));
+
   } else if (pendingActionType === 'RESET_ALL') {
     const updates = {};
     members.forEach(m => {
@@ -900,6 +951,7 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
         updates[`${m.id}/weeklyPayments`] = null;
         updates[`${m.id}/loanAmount`] = 0;
         updates[`${m.id}/loanPaid`] = 0;
+        updates[`${m.id}/history`] = null;
       }
     });
     db.ref('members').update(updates).then(() => {
@@ -907,6 +959,7 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       setStatus("All members' financial records reset.");
       closeModals(); resetPendingAction();
     }).catch(err => alert("Global reset failed: " + err.message));
+
   } else if (pendingActionType === 'LOGOUT') {
     clearSession();
     stopInactivityTimer();
@@ -1006,7 +1059,107 @@ function renderSummary() {
 }
 
 // ================================================================
-// SECTION 29: ACTIVITY LISTENERS (for inactivity logout)
+// SECTION 29: HISTORY MODAL HANDLERS
+// ================================================================
+document.getElementById('historyBtn').addEventListener('click', () => {
+  if (activeUserRole === "viewer") {
+    alert("Please log in to view history.");
+    return;
+  }
+  const editorControls = document.getElementById('historyEditorControls');
+  if (isEditor) {
+    editorControls.style.display = 'block';
+    document.getElementById('historyMemberIdInput').value = '';
+    document.getElementById('historyStatusMsg').innerText = 'Enter a Member ID and press Load.';
+    document.getElementById('historyListContainer').innerHTML = '';
+    document.getElementById('historyMemberName').innerText = '';
+  } else {
+    editorControls.style.display = 'none';
+    loadHistoryForMember(activeUserId);
+  }
+  enableModalElements('modalHistory');
+  document.getElementById('modalHistory').classList.add('active');
+});
+
+document.getElementById('btnLoadHistory').addEventListener('click', () => {
+  if (!isEditor) return alert("Editors only.");
+  const id = document.getElementById('historyMemberIdInput').value.trim().toUpperCase();
+  if (!id) return alert("Please enter a Member ID.");
+  loadHistoryForMember(id);
+});
+
+async function loadHistoryForMember(id) {
+  const statusMsg = document.getElementById('historyStatusMsg');
+  const nameTag = document.getElementById('historyMemberName');
+  const container = document.getElementById('historyListContainer');
+
+  statusMsg.innerText = "Loading...";
+  nameTag.innerText = "";
+  container.innerHTML = "";
+
+  try {
+    const memberSnap = await db.ref('members/' + id).once('value');
+    if (!memberSnap.exists()) {
+      statusMsg.innerText = `Error: ${id} does not exist.`;
+      return;
+    }
+    const member = memberSnap.val();
+    nameTag.innerText = `Member: ${member.name || 'Unnamed'} (${id})`;
+
+    const histSnap = await db.ref('members/' + id + '/history').once('value');
+    const hist = histSnap.val();
+
+    if (!hist) {
+      container.innerHTML = `<div class="history-empty">No transactions recorded yet.</div>`;
+      statusMsg.innerText = "";
+      return;
+    }
+
+    const entries = Object.values(hist).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    renderHistory(entries);
+    statusMsg.innerText = `${entries.length} transaction(s).`;
+  } catch (err) {
+    console.error("History load error:", err);
+    statusMsg.innerText = "Failed to load history.";
+  }
+}
+
+function renderHistory(entries) {
+  const container = document.getElementById('historyListContainer');
+  if (!entries.length) {
+    container.innerHTML = `<div class="history-empty">No transactions recorded yet.</div>`;
+    return;
+  }
+
+  let html = '';
+  entries.forEach(e => {
+    const typeClass =
+      e.type === 'payment'   ? 'history-type-payment'   :
+      e.type === 'loan'      ? 'history-type-loan'      :
+      e.type === 'repayment' ? 'history-type-repayment' : '';
+
+    const typeLabel =
+      e.type === 'payment'   ? 'Payment'   :
+      e.type === 'loan'      ? 'Loan'      :
+      e.type === 'repayment' ? 'Repayment' : 'Entry';
+
+    const date = e.timestamp ? new Date(e.timestamp).toLocaleString() : '';
+    const balanceLine = (e.oldBalance !== null && e.oldBalance !== undefined)
+      ? `Balance: ₦${Number(e.oldBalance).toLocaleString()} → ₦${Number(e.newBalance).toLocaleString()}`
+      : '';
+
+    html += `
+      <div class="history-card">
+        <div class="${typeClass}">${typeLabel}: ${e.description || ''}</div>
+        <div class="history-meta">By ${e.by || 'unknown'} · ${date}</div>
+        ${balanceLine ? `<div class="history-meta">${balanceLine}</div>` : ''}
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ================================================================
+// SECTION 30: ACTIVITY LISTENERS
 // ================================================================
 ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(eventType => {
   window.addEventListener(eventType, resetInactivityTimer, { passive: true });
