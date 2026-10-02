@@ -754,23 +754,38 @@ document.getElementById('btnSavePayments').addEventListener('click', async () =>
     await db.ref(`members/${id}/weeklyPayments`).set(newPayments);
 
     // Log each changed week as a history entry
-    for (let i = 0; i < 50; i++) {
-      const oldVal = oldPayments[i] === undefined ? "" : String(oldPayments[i]);
-      const newVal = newPayments[i] === undefined ? "" : String(newPayments[i]);
-      if (oldVal !== newVal) {
-        const amount = parseFloat(newVal) || 0;
-        if (amount > 0) {
-          await logHistory(id, {
-            type: "payment",
-            amount: amount,
-            week: i + 1,
-            description: `Week ${i + 1} payment: ₦${amount.toLocaleString()}`,
-            oldBalance: parseFloat(oldVal) || 0,
-            newBalance: amount
-          });
-        }
-      }
-    }
+for (let i = 0; i < 50; i++) {
+  const oldVal = oldPayments[i] === undefined ? "" : String(oldPayments[i]).trim();
+  const newVal = newPayments[i] === undefined ? "" : String(newPayments[i]).trim();
+
+  // Skip if unchanged
+  if (oldVal === newVal) continue;
+
+  // Skip if both are empty
+  if (oldVal === "" && newVal === "") continue;
+
+  const oldNum = parseFloat(oldVal) || 0;
+  const newNum = parseFloat(newVal) || 0;
+
+  // Choose wording based on sign
+  let label = `Week ${i + 1} payment`;
+  if (newNum < 0) label = `Week ${i + 1} adjustment`;
+  else if (newNum === 0 && oldNum !== 0) label = `Week ${i + 1} cleared`;
+
+  const amountText = newNum < 0
+    ? `-₦${Math.abs(newNum).toLocaleString()}`
+    : `₦${newNum.toLocaleString()}`;
+
+  await logHistory(id, {
+    type: "payment",
+    amount: newNum,
+    week: i + 1,
+    description: `${label}: ${amountText}`,
+    oldBalance: oldNum,
+    newBalance: newNum
+  });
+}
+  }
 
     alert("Weekly payments saved!");
     setStatus(`Weekly payments saved for ${id}`);
