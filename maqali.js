@@ -672,22 +672,22 @@ document.getElementById('btnOpenReset').addEventListener('click', () => {
   document.getElementById('modalReset').classList.add('active');
 });
 
-document.getElementById('btnVerifyReset').addEventListener('click', () => {
-  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  if (!id) return alert("Please enter a Member ID.");
-  db.ref('members/' + id).once('value').then(snap => {
-    if (!snap.exists()) {
-      document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
-      document.getElementById('resetFields').style.display = 'none';
-      return;
-    }
-    document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
-    document.getElementById('resetFields').style.display = 'block';
-  }).catch(err => {
-    console.error("Recovery load error:", err);
-    alert("Failed to load member. Please try again.");
-  });
-});
+//document.getElementById('btnVerifyReset').addEventListener('click', () => {
+  //const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
+//  if (!id) return alert("Please enter a Member ID.");
+  //db.ref('members/' + id).once('value').then(snap => {
+    //if (!snap.exists()) {
+      //document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
+      //document.getElementById('resetFields').style.display = 'none';
+      //return;
+    //}
+    //document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
+    //document.getElementById('resetFields').style.display = 'block';
+  //}).catch(err => {
+    //console.error("Recovery load error:", err);
+    //alert("Failed to load member. Please try again.");
+  //});
+//});
 
 document.getElementById('btnSubmitReset').addEventListener('click', () => {
   const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
