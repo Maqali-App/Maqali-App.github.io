@@ -498,6 +498,43 @@
     </div>
   </div>
 
+
+
+
+
+
+  <!-- SECURITY QUESTIONS SETUP -->
+<div class="modal-overlay" id="modalSetupQuestions">
+  <div class="modal-box" style="max-width:92vw;width:440px;">
+    <div class="modal-title" style="font-size:17px;">SET UP SECURITY QUESTIONS</div>
+    <div style="font-size:13px;color:#aaa;text-align:center;margin-bottom:14px;">
+      You must set up 3 security questions. They will be used to reset your password if you ever forget it.
+    </div>
+
+    <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">1. What is your husband's / wife's name?</div>
+    <div class="field-row"><input type="text" id="setupSq1" class="field-input" placeholder="Your answer"></div>
+
+    <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">2. How many children do you wish to have?</div>
+    <div class="field-row"><input type="text" id="setupSq2" class="field-input" placeholder="Your answer"></div>
+
+    <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">3. What's your favorite thing about Hajia Fatimah?</div>
+    <div class="field-row"><input type="text" id="setupSq3" class="field-input" placeholder="Your answer"></div>
+
+    <div id="setupQuestionsStatus" style="font-size:12px;color:#ffd700;text-align:center;margin:6px 0;"></div>
+
+    <button class="action-btn save-btn" id="btnSaveQuestions" style="width:100%;margin-top:10px;">Save Answers</button>
+  </div>
+</div>
+
+<!-- EDITOR: RESET REQUESTS -->
+<div class="modal-overlay" id="modalResetRequests">
+  <div class="modal-box" style="max-width:92vw;width:480px;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-title" style="font-size:17px;">PASSWORD RESET REQUESTS</div>
+    <div id="resetRequestsContainer" style="flex:1;overflow-y:auto;margin-top:8px;"></div>
+    <button class="action-btn btn-close-modal" style="width:auto;flex:0 0 auto;padding:0 28px;margin:12px auto 0;display:block;background:#555;">Close</button>
+  </div>
+</div>
+
   <script src="maqali.js?v=3"></script>
   <script src="maqali1.js"></script>
 </body>
