@@ -247,6 +247,7 @@ function startApprovalListener() {
       document.getElementById('resetNewPasswordBlock').style.display = 'block';
       document.getElementById('resetOtpNotice').style.display = 'block';
       document.getElementById('resetOtpField').style.display = 'block';
+      document.getElementById('resetNewQuestionsBlock').style.display = 'block';
       document.getElementById('resetOtpValue').innerText = req.otp;
       document.getElementById('resetStatusMsg').innerText = "Approved. Enter the OTP shown below.";
     } else if (req.status === 'denied') {
@@ -291,6 +292,20 @@ document.getElementById('btnSubmitReset').addEventListener('click', async () => 
 
   try {
     await db.ref('members/' + sqCurrentMemberId + '/password').set(p1);
+    // If WhatsApp-approved path, save the new security answers
+const newQBlock = document.getElementById('resetNewQuestionsBlock');
+if (newQBlock && newQBlock.style.display !== 'none') {
+  const n1 = normAns(document.getElementById('newSq1').value);
+  const n2 = normAns(document.getElementById('newSq2').value);
+  const n3 = normAns(document.getElementById('newSq3').value);
+  if (!n1 || !n2 || !n3) {
+    alert("Please set all 3 new security answers.");
+    return;
+  }
+  await db.ref('members/' + sqCurrentMemberId + '/securityQuestions').set({
+    a1: n1, a2: n2, a3: n3, setAt: Date.now()
+  });
+}
     await db.ref('resetRequests/' + sqCurrentMemberId).remove();
 
     alert(`Password for ${sqCurrentMemberId} updated successfully!`);
