@@ -118,15 +118,31 @@
 <body>
 
   <!-- ============================ TOP BAR ============================ -->
-  <div class="top-bar">
+  <!--div class="top-bar">
     <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
     <div style="display:flex; gap:6px;">
       <button class="login-btn" id="historyBtn" style="background:#6f42c1;">History</button>
       <button class="login-btn" id="loginBtn">Member Login</button>
     </div>
-  </div>
+</div-->
 
   <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
+
+
+     <div class="top-bar">
+  <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
+  <div style="display:flex; gap:6px;">
+    <button class="login-btn" id="resetReqBtn" style="background:#dc3545; display:none; position:relative;">
+      Requests
+      <span id="resetReqBadge" style="display:none; position:absolute; top:-6px; right:-6px; background:#ffd700; color:#000; font-size:10px; padding:1px 5px; border-radius:8px; font-weight:bold;">0</span>
+    </button>
+    <button class="login-btn" id="historyBtn" style="background:#6f42c1;">History</button>
+    <button class="login-btn" id="loginBtn">Member Login</button>
+  </div>
+</div>
+
+
+  
 
   <!-- ============================ TAB CONTAINER ============================ -->
   <div class="tab-container" id="tabContainer">
@@ -299,7 +315,7 @@
   
 
   <!-- PASSWORD RECOVERY -->
-  <div class="modal-overlay" id="modalReset">
+  <!--div class="modal-overlay" id="modalReset">
     <div class="modal-box">
       <div class="modal-title">PASSWORD RECOVERY</div>
       <div class="modal-subtitle">Enter your Member ID & click Load</div>
@@ -328,7 +344,82 @@
       </div>
       <button class="action-btn btn-close-modal" style="width: 100%; margin-top: 8px; background: #555;">Cancel</button>
     </div>
+</div-->
+
+
+   <!-- PASSWORD RECOVERY -->
+<div class="modal-overlay" id="modalReset">
+  <div class="modal-box" style="max-width:92vw;width:440px;">
+    <div class="modal-title" style="font-size:17px;">PASSWORD RECOVERY</div>
+    <div class="modal-subtitle">Enter your Member ID & click Load</div>
+
+    <div class="field-row">
+      <span class="field-label">Member ID</span>
+      <div class="shared-input-wrapper">
+        <input type="text" id="resetIdInput" class="id-input-part" placeholder="M-001 or E-001">
+        <button class="load-btn-part" id="btnVerifyReset">Load</button>
+      </div>
+    </div>
+
+    <div id="resetStatusMsg" style="font-size: 12px; text-align: center; margin: 8px 0; color: #ffd700;"></div>
+
+    <!-- Security Questions -->
+    <div id="resetQuestionsBlock" style="display:none;">
+      <div style="font-size:12px;color:#aaa;margin-bottom:8px;text-align:center;">Answer your 3 security questions:</div>
+
+      <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">1. What is your husband's / wife's name?</div>
+      <div class="field-row"><input type="text" id="resetSq1" class="field-input" placeholder="Answer 1"></div>
+
+      <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">2. How many children do you wish to have?</div>
+      <div class="field-row"><input type="text" id="resetSq2" class="field-input" placeholder="Answer 2"></div>
+
+      <div style="font-size:12px;color:#ffd700;margin-bottom:4px;">3. What's your favorite thing about Hajia Fatimah?</div>
+      <div class="field-row"><input type="text" id="resetSq3" class="field-input" placeholder="Answer 3"></div>
+
+      <button class="action-btn save-btn" id="btnVerifyAnswers" style="width:100%;margin-top:8px;">Verify Answers</button>
+      <div id="resetQuestionsMsg" style="font-size:12px;text-align:center;margin-top:8px;color:#ff6b6b;"></div>
+    </div>
+
+    <!-- WhatsApp Fallback -->
+    <div id="resetWhatsappBlock" style="display:none;">
+      <div style="font-size:12px;color:#ff6b6b;text-align:center;margin:8px 0;">
+        Too many wrong answers. Please contact an editor via WhatsApp to approve a password reset.
+      </div>
+      <button class="action-btn" id="btnRequestApproval" style="width:100%;background:#25D366;font-weight:bold;">Send Request via WhatsApp</button>
+      <div id="resetPendingMsg" style="font-size:12px;color:#ffd700;text-align:center;margin-top:8px;"></div>
+    </div>
+
+    <!-- New Password (shown after correct answers OR after approval) -->
+    <div id="resetNewPasswordBlock" style="display:none;">
+      <div id="resetOtpNotice" style="display:none;background:#000018;border:1px solid #28a745;border-radius:6px;padding:10px;text-align:center;margin-bottom:10px;">
+        <div style="font-size:11px;color:#aaa;margin-bottom:4px;">APPROVED — OTP (5 min)</div>
+        <div id="resetOtpValue" style="font-size:22px;color:#51cf66;font-weight:bold;letter-spacing:3px;">------</div>
+      </div>
+
+      <div id="resetOtpField" style="display:none;">
+        <div class="field-row">
+          <span class="field-label">OTP</span>
+          <input type="text" id="resetOtpInput" class="field-input" placeholder="Enter OTP">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <span class="field-label">New Pass</span>
+        <input type="password" id="resetNewPass" class="field-input" placeholder="New Password">
+      </div>
+      <div class="field-row">
+        <span class="field-label">Verify Pass</span>
+        <input type="password" id="resetVerPass" class="field-input" placeholder="Confirm Password">
+      </div>
+      <button class="action-btn save-btn" id="btnSubmitReset" style="width:100%;margin-top:8px;">Update Password</button>
+    </div>
+
+    <button class="action-btn btn-close-modal" style="width:100%;margin-top:10px;background:#555;">Cancel</button>
   </div>
+</div>
+
+
+  
 
   <!-- SECURITY PIN -->
   <div class="modal-overlay" id="modalSecurityPin">
@@ -408,5 +499,6 @@
   </div>
 
   <script src="maqali.js?v=3"></script>
+  <script src="maqali1.js"></script>
 </body>
 </html>
