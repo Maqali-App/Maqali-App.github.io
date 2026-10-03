@@ -161,6 +161,7 @@ function applyEditorUI(editorId) {
   hideLoginPrompt();
   attachMembersListener();
   resetInactivityTimer();
+  if (typeof onUserReady === 'function') onUserReady(editorId, 'editor');
 }
 
 function applyMemberUI(memberId) {
@@ -186,6 +187,7 @@ function applyMemberUI(memberId) {
   loadWeeklyForMember(memberId);
   loadLoansForMember(memberId);
   renderMembers();
+  if (typeof onUserReady === 'function') onUserReady(memberId, 'member');
 }
 
 // ================================================================
