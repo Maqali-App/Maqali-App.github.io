@@ -1,1 +1,19 @@
-
+{
+  "name": "MAQALI",
+  "short_name": "MAQALI",
+  "description": "Maqali Family Meeting App",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000040",
+  "theme_color": "#007AFF",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
