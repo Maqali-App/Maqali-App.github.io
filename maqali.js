@@ -603,21 +603,42 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
-  const memberObj = {
-    id: typedId,
-    name,
-    age: document.getElementById('age').value,
-    phone: document.getElementById('phone').value,
-    familyTies: document.getElementById('familyTies').value,
-    isEditor: isEditorRole,
-    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-    uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
-    password,
-    weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-    loanAmount: existingMember ? existingMember.loanAmount : 0,
-    loanPaid: existingMember ? existingMember.loanPaid : 0
-  };
+  //const memberObj = {
+    //id: typedId,
+   // name,
+   // age: document.getElementById('age').value,
+   // phone: document.getElementById('phone').value,
+   // familyTies: document.getElementById('familyTies').value,
+   // isEditor: isEditorRole,
+   // email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+   // uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
+   // password,
+    //weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
+    //loanAmount: existingMember ? existingMember.loanAmount : 0,
+    //loanPaid: existingMember ? existingMember.loanPaid : 0
+  //};
 
+
+
+const memberObj = {
+  id: typedId,
+  name,
+  age: document.getElementById('age').value,
+  phone: document.getElementById('phone').value,
+  familyTies: document.getElementById('familyTies').value,
+  isEditor: isEditorRole,
+  email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+  uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
+  password,
+  weeklyPayments: (existingMember && existingMember.weeklyPayments) ? existingMember.weeklyPayments : new Array(50).fill(''),
+  loanAmount: (existingMember && existingMember.loanAmount !== undefined) ? existingMember.loanAmount : 0,
+  loanPaid: (existingMember && existingMember.loanPaid !== undefined) ? existingMember.loanPaid : 0
+};
+
+
+
+
+  
   try {
     await db.ref('members/' + typedId).set(memberObj);
     alert(`Member ${typedId} saved successfully!`);
@@ -946,29 +967,75 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       closeModals(); resetPendingAction();
     }).catch(err => alert("Delete failed: " + err.message));
 
-  } else if (pendingActionType === 'RESET_SINGLE') {
-    if (!pendingTargetId) return;
-    const updates = {};
-    updates[`members/${pendingTargetId}/weeklyPayments`] = null;
-    updates[`members/${pendingTargetId}/loanAmount`] = 0;
-    updates[`members/${pendingTargetId}/loanPaid`] = 0;
-    updates[`members/${pendingTargetId}/history`] = null;
-    db.ref().update(updates).then(() => {
+  //} else if (pendingActionType === 'RESET_SINGLE') {
+   // if (!pendingTargetId) return;
+    //const updates = {};
+    //updates[`members/${pendingTargetId}/weeklyPayments`] = null;
+    //updates[`members/${pendingTargetId}/loanAmount`] = 0;
+   // updates[`members/${pendingTargetId}/loanPaid`] = 0;
+    //updates[`members/${pendingTargetId}/history`] = null;
+    //db.ref().update(updates).then(() => {
+      //alert(`Financial records for ${pendingTargetId} reset.`);
+      //setStatus(`Financial records for ${pendingTargetId} reset.`);
+      //closeModals(); resetPendingAction();
+    //}).catch(err => alert("Reset failed: " + err.message));
+
+
+
+
+    } else if (pendingActionType === 'RESET_SINGLE') {
+  if (!pendingTargetId) return;
+  const updates = {};
+  updates[`members/${pendingTargetId}/weeklyPayments`] = new Array(50).fill('');
+  updates[`members/${pendingTargetId}/loanAmount`] = 0;
+  updates[`members/${pendingTargetId}/loanPaid`] = 0;
+  updates[`members/${pendingTargetId}/history`] = null;
+  db.ref().update(updates)
+    .then(() => {
       alert(`Financial records for ${pendingTargetId} reset.`);
       setStatus(`Financial records for ${pendingTargetId} reset.`);
-      closeModals(); resetPendingAction();
-    }).catch(err => alert("Reset failed: " + err.message));
+      closeModals();
+      resetPendingAction();
+    })
+    .catch(err => alert("Reset failed: " + err.message));
 
-  } else if (pendingActionType === 'RESET_ALL') {
-    const updates = {};
-    members.forEach(m => {
-      if (m.id) {
-        updates[`${m.id}/weeklyPayments`] = null;
-        updates[`${m.id}/loanAmount`] = 0;
-        updates[`${m.id}/loanPaid`] = 0;
-        updates[`${m.id}/history`] = null;
-      }
-    });
+  //} else if (pendingActionType === 'RESET_ALL') {
+   // const updates = {};
+    //members.forEach(m => {
+    //  if (m.id) {
+     //   updates[`${m.id}/weeklyPayments`] = null;
+     //   updates[`${m.id}/loanAmount`] = 0;
+     //   updates[`${m.id}/loanPaid`] = 0;
+      //  updates[`${m.id}/history`] = null;
+    //  }
+    //});
+
+
+
+    } else if (pendingActionType === 'RESET_ALL') {
+  const updates = {};
+  members.forEach(m => {
+    if (m.id) {
+      updates[`${m.id}/weeklyPayments`] = null;
+      updates[`${m.id}/loanAmount`] = 0;
+      updates[`${m.id}/loanPaid`] = 0;
+      updates[`${m.id}/history`] = null;
+    }
+  });
+  db.ref('members').update(updates)
+    .then(() => {
+      alert("All financial records reset.");
+      setStatus("All members' financial records reset.");
+      closeModals();
+      resetPendingAction();
+    })
+    .catch(err => alert("Global reset failed: " + err.message));
+  }
+
+
+
+
+    
     db.ref('members').update(updates).then(() => {
       alert("All financial records reset.");
       setStatus("All members' financial records reset.");
