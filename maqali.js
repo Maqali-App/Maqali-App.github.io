@@ -282,6 +282,7 @@ function showLoginPrompt() {
   `;
   document.body.appendChild(overlay);
   document.getElementById('loginPromptBtn').addEventListener('click', () => {
+    hideLoginPrompt();
     enableModalElements('modalLogin');
     document.getElementById('modalLogin').classList.add('active');
   });
@@ -603,42 +604,21 @@ document.getElementById('btnSaveMember').addEventListener('click', async () => {
 
   const password = passwordInput || (existingMember ? existingMember.password : DEFAULT_PASSWORD);
 
-  //const memberObj = {
-    //id: typedId,
-   // name,
-   // age: document.getElementById('age').value,
-   // phone: document.getElementById('phone').value,
-   // familyTies: document.getElementById('familyTies').value,
-   // isEditor: isEditorRole,
-   // email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-   // uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
-   // password,
-    //weeklyPayments: existingMember ? existingMember.weeklyPayments : new Array(50).fill(''),
-    //loanAmount: existingMember ? existingMember.loanAmount : 0,
-    //loanPaid: existingMember ? existingMember.loanPaid : 0
-  //};
+  const memberObj = {
+    id: typedId,
+    name,
+    age: document.getElementById('age').value,
+    phone: document.getElementById('phone').value,
+    familyTies: document.getElementById('familyTies').value,
+    isEditor: isEditorRole,
+    email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
+    uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
+    password,
+    weeklyPayments: (existingMember && existingMember.weeklyPayments) ? existingMember.weeklyPayments : new Array(50).fill(''),
+    loanAmount: (existingMember && existingMember.loanAmount !== undefined) ? existingMember.loanAmount : 0,
+    loanPaid: (existingMember && existingMember.loanPaid !== undefined) ? existingMember.loanPaid : 0
+  };
 
-
-
-const memberObj = {
-  id: typedId,
-  name,
-  age: document.getElementById('age').value,
-  phone: document.getElementById('phone').value,
-  familyTies: document.getElementById('familyTies').value,
-  isEditor: isEditorRole,
-  email: `${typedId.toLowerCase()}${EMAIL_DOMAIN}`,
-  uid: (existingMember && existingMember.uid) ? existingMember.uid : null,
-  password,
-  weeklyPayments: (existingMember && existingMember.weeklyPayments) ? existingMember.weeklyPayments : new Array(50).fill(''),
-  loanAmount: (existingMember && existingMember.loanAmount !== undefined) ? existingMember.loanAmount : 0,
-  loanPaid: (existingMember && existingMember.loanPaid !== undefined) ? existingMember.loanPaid : 0
-};
-
-
-
-
-  
   try {
     await db.ref('members/' + typedId).set(memberObj);
     alert(`Member ${typedId} saved successfully!`);
@@ -685,7 +665,7 @@ document.getElementById('btnSubmitLogin').addEventListener('click', async () => 
 });
 
 // ================================================================
-// SECTION 23: PASSWORD RECOVERY
+// SECTION 23: PASSWORD RECOVERY (opener only; logic is in maqali1.js)
 // ================================================================
 document.getElementById('btnOpenReset').addEventListener('click', () => {
   closeModals();
@@ -693,49 +673,7 @@ document.getElementById('btnOpenReset').addEventListener('click', () => {
   document.getElementById('modalReset').classList.add('active');
 });
 
-//document.getElementById('btnVerifyReset').addEventListener('click', () => {
-  //const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-//  if (!id) return alert("Please enter a Member ID.");
-  //db.ref('members/' + id).once('value').then(snap => {
-    //if (!snap.exists()) {
-      //document.getElementById('resetStatusMsg').innerText = `Error: ${id} does not exist.`;
-      //document.getElementById('resetFields').style.display = 'none';
-      //return;
-    //}
-    //document.getElementById('resetStatusMsg').innerText = `Member ID ${id} verified. Enter Master PIN below.`;
-    //document.getElementById('resetFields').style.display = 'block';
-  //}).catch(err => {
-    //console.error("Recovery load error:", err);
-    //alert("Failed to load member. Please try again.");
-  //});
-//});
-
-document.getElementById('btnSubmitReset').addEventListener('click', () => {
-  const id = document.getElementById('resetIdInput').value.trim().toUpperCase();
-  const inputPin = document.getElementById('resetMasterPin').value.trim();
-  const newPass = document.getElementById('resetNewPass').value;
-  const verPass = document.getElementById('resetVerPass').value;
-  if (!id || !inputPin) return alert("Please fill all fields.");
-  if (newPass !== verPass) return alert("New passwords do not match.");
-  db.ref('system/masterPin').once('value')
-    .then(snap => {
-      const actualPin = snap.val();
-      if (!actualPin) throw new Error("Master PIN missing. Please set it in the database under system/masterPin.");
-      if (String(actualPin) !== inputPin) throw new Error("Incorrect Master PIN!");
-      return db.ref('members/' + id + '/password').set(newPass);
-    })
-    .then(() => {
-      alert(`Password for ${id} updated successfully!`);
-      document.getElementById('resetIdInput').value = '';
-      document.getElementById('resetMasterPin').value = '';
-      document.getElementById('resetNewPass').value = '';
-      document.getElementById('resetVerPass').value = '';
-      document.getElementById('resetFields').style.display = 'none';
-      document.getElementById('resetStatusMsg').innerText = '';
-      closeModals();
-    })
-    .catch(err => { alert(err.message); });
-});
+// NOTE: btnVerifyReset and btnSubmitReset handlers are defined in maqali1.js
 
 // ================================================================
 // SECTION 24: WEEKLY TAB HANDLERS (with history logging)
@@ -777,37 +715,34 @@ document.getElementById('btnSavePayments').addEventListener('click', async () =>
     await db.ref(`members/${id}/weeklyPayments`).set(newPayments);
 
     // Log each changed week as a history entry
-for (let i = 0; i < 50; i++) {
-  const oldVal = oldPayments[i] === undefined ? "" : String(oldPayments[i]).trim();
-  const newVal = newPayments[i] === undefined ? "" : String(newPayments[i]).trim();
+    for (let i = 0; i < 50; i++) {
+      const oldVal = oldPayments[i] === undefined ? "" : String(oldPayments[i]).trim();
+      const newVal = newPayments[i] === undefined ? "" : String(newPayments[i]).trim();
 
-  // Skip if unchanged
-  if (oldVal === newVal) continue;
+      if (oldVal === newVal) continue;
+      if (oldVal === "" && newVal === "") continue;
 
-  // Skip if both are empty
-  if (oldVal === "" && newVal === "") continue;
+      const oldNum = parseFloat(oldVal) || 0;
+      const newNum = parseFloat(newVal) || 0;
 
-  const oldNum = parseFloat(oldVal) || 0;
-  const newNum = parseFloat(newVal) || 0;
+      let label = `Week ${i + 1} payment`;
+      if (newNum < 0) label = `Week ${i + 1} adjustment`;
+      else if (newNum === 0 && oldNum !== 0) label = `Week ${i + 1} cleared`;
 
-  // Choose wording based on sign
-  let label = `Week ${i + 1} payment`;
-  if (newNum < 0) label = `Week ${i + 1} adjustment`;
-  else if (newNum === 0 && oldNum !== 0) label = `Week ${i + 1} cleared`;
+      const amountText = newNum < 0
+        ? `-₦${Math.abs(newNum).toLocaleString()}`
+        : `₦${newNum.toLocaleString()}`;
 
-  const amountText = newNum < 0
-    ? `-₦${Math.abs(newNum).toLocaleString()}`
-    : `₦${newNum.toLocaleString()}`;
+      await logHistory(id, {
+        type: "payment",
+        amount: newNum,
+        week: i + 1,
+        description: `${label}: ${amountText}`,
+        oldBalance: oldNum,
+        newBalance: newNum
+      });
+    }
 
-  await logHistory(id, {
-    type: "payment",
-    amount: newNum,
-    week: i + 1,
-    description: `${label}: ${amountText}`,
-    oldBalance: oldNum,
-    newBalance: newNum
-  });
-}
     alert("Weekly payments saved!");
     setStatus(`Weekly payments saved for ${id}`);
   } catch (err) {
@@ -967,80 +902,40 @@ document.getElementById('btnExecuteAction').addEventListener('click', () => {
       closeModals(); resetPendingAction();
     }).catch(err => alert("Delete failed: " + err.message));
 
-  //} else if (pendingActionType === 'RESET_SINGLE') {
-   // if (!pendingTargetId) return;
-    //const updates = {};
-    //updates[`members/${pendingTargetId}/weeklyPayments`] = null;
-    //updates[`members/${pendingTargetId}/loanAmount`] = 0;
-   // updates[`members/${pendingTargetId}/loanPaid`] = 0;
-    //updates[`members/${pendingTargetId}/history`] = null;
-    //db.ref().update(updates).then(() => {
-      //alert(`Financial records for ${pendingTargetId} reset.`);
-      //setStatus(`Financial records for ${pendingTargetId} reset.`);
-      //closeModals(); resetPendingAction();
-    //}).catch(err => alert("Reset failed: " + err.message));
+  } else if (pendingActionType === 'RESET_SINGLE') {
+    if (!pendingTargetId) return;
+    const updates = {};
+    updates[`members/${pendingTargetId}/weeklyPayments`] = new Array(50).fill('');
+    updates[`members/${pendingTargetId}/loanAmount`] = 0;
+    updates[`members/${pendingTargetId}/loanPaid`] = 0;
+    updates[`members/${pendingTargetId}/history`] = null;
+    db.ref().update(updates)
+      .then(() => {
+        alert(`Financial records for ${pendingTargetId} reset.`);
+        setStatus(`Financial records for ${pendingTargetId} reset.`);
+        closeModals();
+        resetPendingAction();
+      })
+      .catch(err => alert("Reset failed: " + err.message));
 
-
-
-
-    } else if (pendingActionType === 'RESET_SINGLE') {
-  if (!pendingTargetId) return;
-  const updates = {};
-  updates[`members/${pendingTargetId}/weeklyPayments`] = new Array(50).fill('');
-  updates[`members/${pendingTargetId}/loanAmount`] = 0;
-  updates[`members/${pendingTargetId}/loanPaid`] = 0;
-  updates[`members/${pendingTargetId}/history`] = null;
-  db.ref().update(updates)
-    .then(() => {
-      alert(`Financial records for ${pendingTargetId} reset.`);
-      setStatus(`Financial records for ${pendingTargetId} reset.`);
-      closeModals();
-      resetPendingAction();
-    })
-    .catch(err => alert("Reset failed: " + err.message));
-
-  //} else if (pendingActionType === 'RESET_ALL') {
-   // const updates = {};
-    //members.forEach(m => {
-    //  if (m.id) {
-     //   updates[`${m.id}/weeklyPayments`] = null;
-     //   updates[`${m.id}/loanAmount`] = 0;
-     //   updates[`${m.id}/loanPaid`] = 0;
-      //  updates[`${m.id}/history`] = null;
-    //  }
-    //});
-
-
-
-    } else if (pendingActionType === 'RESET_ALL') {
-  const updates = {};
-  members.forEach(m => {
-    if (m.id) {
-      updates[`${m.id}/weeklyPayments`] = null;
-      updates[`${m.id}/loanAmount`] = 0;
-      updates[`${m.id}/loanPaid`] = 0;
-      updates[`${m.id}/history`] = null;
-    }
-  });
-  db.ref('members').update(updates)
-    .then(() => {
-      alert("All financial records reset.");
-      setStatus("All members' financial records reset.");
-      closeModals();
-      resetPendingAction();
-    })
-    .catch(err => alert("Global reset failed: " + err.message));
-  }
-
-
-
-
-    
-    db.ref('members').update(updates).then(() => {
-      alert("All financial records reset.");
-      setStatus("All members' financial records reset.");
-      closeModals(); resetPendingAction();
-    }).catch(err => alert("Global reset failed: " + err.message));
+  } else if (pendingActionType === 'RESET_ALL') {
+    const updates = {};
+    members.forEach(m => {
+      if (m.id) {
+        updates[`${m.id}/weeklyPayments`] = new Array(50).fill('');
+        updates[`${m.id}/loanAmount`] = 0;
+        updates[`${m.id}/loanPaid`] = 0;
+        updates[`${m.id}/history`] = null;
+      }
+    });
+    db.ref('members').update(updates)
+      .then(() => {
+        alert("All financial records reset.");
+        setStatus("All members' financial records reset.");
+        closeModals();
+        resetPendingAction();
+      })
+      .catch(err => alert("Global reset failed: " + err.message));
 
   } else if (pendingActionType === 'LOGOUT') {
     clearSession();
@@ -1227,9 +1122,9 @@ function renderHistory(entries) {
 
     const date = e.timestamp ? new Date(e.timestamp).toLocaleString() : '';
     const balanceLine = (e.oldBalance !== null && e.oldBalance !== undefined)
-  ? `Balance: ${Number(e.oldBalance) < 0 ? '-₦' + Math.abs(Number(e.oldBalance)).toLocaleString() : '₦' + Number(e.oldBalance).toLocaleString()} → ${Number(e.newBalance) < 0 ? '-₦' + Math.abs(Number(e.newBalance)).toLocaleString() : '₦' + Number(e.newBalance).toLocaleString()}`
-  : '';
-    
+      ? `Balance: ${Number(e.oldBalance) < 0 ? '-₦' + Math.abs(Number(e.oldBalance)).toLocaleString() : '₦' + Number(e.oldBalance).toLocaleString()} → ${Number(e.newBalance) < 0 ? '-₦' + Math.abs(Number(e.newBalance)).toLocaleString() : '₦' + Number(e.newBalance).toLocaleString()}`
+      : '';
+
     html += `
       <div class="history-card">
         <div class="${typeClass}">${typeLabel}: ${e.description || ''}</div>
