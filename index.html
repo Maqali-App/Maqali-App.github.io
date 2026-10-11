@@ -26,6 +26,76 @@
     .role-badge { font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px; background: #333366; }
     .login-btn { background: #007AFF; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
 
+
+
+      .menu-wrapper {
+  position: relative;
+  display: none;
+}
+.menu-wrapper.visible {
+  display: block;
+}
+
+.menu-toggle-btn {
+  background: #007AFF;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: #000028;
+  border: 1px solid #007AFF;
+  border-radius: 6px;
+  list-style: none;
+  padding: 0;
+  min-width: 160px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  z-index: 500;
+}
+.dropdown-menu.open {
+  max-height: 300px;
+  opacity: 1;
+}
+
+.dropdown-menu li {
+  list-style: none;
+  margin: 0;
+}
+.dropdown-menu li button {
+  width: 100%;
+  background: none;
+  border: none;
+  color: #fff;
+  text-align: left;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  display: block;
+  transition: background 0.15s ease;
+}
+.dropdown-menu li button:hover {
+  background: #111155;
+}
+.dropdown-menu li button.danger {
+  color: #ff6b6b;
+} 
+
+    
+
     .status-banner { background: #111155; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #333; text-align: center; color: #ffd700; font-size: 11px; font-weight: bold; min-height: 32px; display: flex; align-items: center; justify-content: center; }
     .card { background: #000028; border-radius: 8px; padding: 12px; border: 1px solid #333; }
 
@@ -139,7 +209,29 @@
   <div class="status-banner" id="statusBanner">STATUS: Connecting to Database...</div>
 
 
-     <div class="top-bar">
+
+  <div class="top-bar">
+  <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
+  <div class="menu-wrapper" id="menuWrapper">
+    <button class="menu-toggle-btn" id="menuToggle">☰</button>
+    <ul class="dropdown-menu" id="dropdownMenu">
+      <li id="menuItemRequests" style="display:none;">
+        <button id="resetReqBtn">Requests</button>
+      </li>
+      <li id="menuItemHistory">
+        <button id="historyBtn">History</button>
+      </li>
+      <li id="menuItemLogout">
+        <button id="loginBtn" class="danger">Logout</button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+
+
+  
+     <!--div class="top-bar">
   <span class="role-badge" id="roleBadge">Role: Viewer (Read-Only)</span>
   <div style="display:flex; gap:6px;">
     <button class="login-btn" id="resetReqBtn" style="background:#dc3545; display:none; position:relative;">
@@ -149,7 +241,7 @@
     <button class="login-btn" id="historyBtn" style="background:#6f42c1;">History</button>
     <button class="login-btn" id="loginBtn">Member Login</button>
   </div>
-</div>
+</div-->
 
 
   
