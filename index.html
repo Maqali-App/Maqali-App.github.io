@@ -94,6 +94,12 @@
   color: #ff6b6b;
 } 
 
+  .dropdown-menu li button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+    }
+
     
 
     .status-banner { background: #111155; padding: 8px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #333; text-align: center; color: #ffd700; font-size: 11px; font-weight: bold; min-height: 32px; display: flex; align-items: center; justify-content: center; }
@@ -213,8 +219,11 @@
     <button class="menu-toggle-btn" id="menuToggle">☰</button>
     <ul class="dropdown-menu" id="dropdownMenu">
       <li id="menuItemRequests" style="display:none;">
-        <button id="resetReqBtn">Requests</button>
-      </li>
+  <button id="resetReqBtn">
+    Requests
+    <span id="resetReqBadge" style="display:none; background:#ffd700; color:#000; font-size:11px; padding:1px 7px; border-radius:10px; font-weight:bold; margin-left:8px;">0</span>
+  </button>
+</li>
       <li id="menuItemHistory">
         <button id="historyBtn">History</button>
       </li>
