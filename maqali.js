@@ -134,6 +134,10 @@ function setViewerMode() {
   activeUserId = "";
   activeUserRole = "viewer";
   document.getElementById('roleBadge').innerText = "Role: Viewer (Not Logged In)";
+  const menuWrapper = document.getElementById('menuWrapper');
+if (menuWrapper) menuWrapper.classList.remove('visible');
+const dropdown = document.getElementById('dropdownMenu');
+if (dropdown) dropdown.classList.remove('open');
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Member Login";
 
@@ -156,6 +160,9 @@ function applyEditorUI(editorId) {
   document.getElementById('roleBadge').style.background = "#28a745";
   document.getElementById('loginBtn').innerText = "Logout";
 
+  const menuWrapper = document.getElementById('menuWrapper');
+if (menuWrapper) menuWrapper.classList.add('visible');
+
   updateTabsVisibility();
   unlockAllTabs();
   hideLoginPrompt();
@@ -171,6 +178,9 @@ function applyMemberUI(memberId) {
   document.getElementById('roleBadge').innerText = `Role: Member (${memberId})`;
   document.getElementById('roleBadge').style.background = "#333366";
   document.getElementById('loginBtn').innerText = "Logout";
+  
+  const menuWrapper = document.getElementById('menuWrapper');
+if (menuWrapper) menuWrapper.classList.add('visible');
 
   updateTabsVisibility();
   unlockAllTabs();
@@ -1135,6 +1145,36 @@ function renderHistory(entries) {
   });
   container.innerHTML = html;
 }
+
+
+// ================================================================
+// SECTION 29b: HAMBURGER MENU LOGIC
+// ================================================================
+const menuToggleBtn = document.getElementById('menuToggle');
+const dropdownMenuEl = document.getElementById('dropdownMenu');
+
+if (menuToggleBtn && dropdownMenuEl) {
+  // Open / close when tapping the hamburger
+  menuToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownMenuEl.classList.toggle('open');
+  });
+
+  // Close when tapping outside
+  document.addEventListener('click', (e) => {
+    if (!dropdownMenuEl.contains(e.target) && e.target !== menuToggleBtn) {
+      dropdownMenuEl.classList.remove('open');
+    }
+  });
+
+  // Close when a menu item is clicked
+  dropdownMenuEl.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      dropdownMenuEl.classList.remove('open');
+    });
+  });
+}
+
 
 // ================================================================
 // SECTION 30: ACTIVITY LISTENERS
