@@ -49,15 +49,16 @@ async function getEditorPhone() {
 // ON USER READY — called from maqali.js after login
 // ================================================================
 async function onUserReady(userId, role) {
-  const reqBtn = document.getElementById('resetReqBtn');
-  if (reqBtn) reqBtn.style.display = (role === 'editor') ? 'inline-block' : 'none';
+  // Show / hide the Requests menu item based on role
+  const reqItem = document.getElementById('menuItemRequests');
+  if (reqItem) reqItem.style.display = (role === 'editor') ? 'block' : 'none';
 
   if (role === 'editor') {
     startEditorRequestsListener();
   } else {
     stopEditorRequestsListener();
   }
-
+  
   try {
     const snap = await db.ref('members/' + userId + '/securityQuestions').once('value');
     if (!snap.exists()) {
