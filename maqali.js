@@ -210,6 +210,8 @@ function lockAllTabs() {
     if (
       el.id !== 'loginBtn' &&
       el.id !== 'historyBtn' &&
+      el.id !== 'resetReqBtn' &&
+      el.id !== 'menuToggle' &&
       !el.closest('.modal-overlay') &&
       !el.classList.contains('btn-close-modal')
     ) {
@@ -217,7 +219,6 @@ function lockAllTabs() {
     }
   });
 }
-
 function unlockAllTabs() {
   document.querySelectorAll('input, select, button').forEach(el => {
     if (!el.closest('.modal-overlay')) el.disabled = false;
